@@ -75,6 +75,11 @@ const ambulanceSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    specializations: {
+      type: [String],
+      enum: ['accident', 'cardiac', 'respiratory', 'trauma', 'maternity', 'general', 'other'],
+      default: ['general'],
+    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
