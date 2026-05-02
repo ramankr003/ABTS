@@ -50,6 +50,15 @@ const bookingSchema = new mongoose.Schema(
       name:      { type: String },
       age:       { type: Number, min: 0, max: 150 },
       condition: { type: String },
+      bloodGroup: {
+        type: String,
+        enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown'],
+        default: 'unknown',
+      },
+      emergencyContact: {
+        name:  { type: String },
+        phone: { type: String },
+      },
     },
     estimatedDistance: { type: Number, default: 0 },
     estimatedTime:     { type: Number, default: 0 },

@@ -20,7 +20,8 @@ export default function BookingConfirmationScreen({ route, navigation }) {
 
   const [emergencyType,  setEmergencyType]  = useState('general');
   const [paymentMethod,  setPaymentMethod]  = useState('cash');
-  const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '' });
+  const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '', bloodGroup: 'unknown' });
+  const [emergencyContact, setEmergencyContact] = useState({ name: '', phone: '' });
   const [dropAddress,    setDropAddress]    = useState('');
   const [dropCoords,     setDropCoords]     = useState(null);
   const [dropSuggestions, setDropSuggestions] = useState([]);
@@ -105,6 +106,11 @@ export default function BookingConfirmationScreen({ route, navigation }) {
           name: patientDetails.name,
           age:  patientDetails.age ? parseInt(patientDetails.age) : undefined,
           condition: patientDetails.condition,
+          bloodGroup: patientDetails.bloodGroup,
+          emergencyContact: {
+            name:  emergencyContact.name,
+            phone: emergencyContact.phone,
+          },
         },
         estimatedDistance: distanceKm,
         paymentMethod,
@@ -213,6 +219,53 @@ export default function BookingConfirmationScreen({ route, navigation }) {
             multiline
             numberOfLines={3}
           />
+
+          {/* Blood Group */}
+          <Text style={[styles.inputLabel, { marginTop: Spacing.md, marginBottom: 8 }]}>Blood Group</Text>
+          <View style={styles.bloodGroupGrid}>
+            {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
+              <TouchableOpacity
+                key={bg}
+                style={[styles.bgChip, patientDetails.bloodGroup === bg && styles.bgChipActive]}
+                onPress={() => setPatientDetails((p) => ({ ...p, bloodGroup: bg }))}
+              >
+                <Text style={[styles.bgChipText, patientDetails.bloodGroup === bg && styles.bgChipTextActive]}>{bg}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={[styles.bgChip, patientDetails.bloodGroup === 'unknown' && styles.bgChipActive]}
+              onPress={() => setPatientDetails((p) => ({ ...p, bloodGroup: 'unknown' }))}
+            >
+              <Text style={[styles.bgChipText, patientDetails.bloodGroup === 'unknown' && styles.bgChipTextActive]}>Unknown</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Emergency Contact */}
+          <Text style={[styles.inputLabel, { marginTop: Spacing.md, marginBottom: 8 }]}>Emergency Contact</Text>
+          <View style={styles.inputRow}>
+            <View style={styles.inputHalf}>
+              <Text style={styles.inputLabel}>Contact Name</Text>
+              <TextInput
+                style={styles.input}
+                value={emergencyContact.name}
+                onChangeText={(v) => setEmergencyContact((c) => ({ ...c, name: v }))}
+                placeholder="Full name"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+            <View style={styles.inputHalf}>
+              <Text style={styles.inputLabel}>Contact Phone</Text>
+              <TextInput
+                style={styles.input}
+                value={emergencyContact.phone}
+                onChangeText={(v) => setEmergencyContact((c) => ({ ...c, phone: v }))}
+                placeholder="10-digit number"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="phone-pad"
+                maxLength={15}
+              />
+            </View>
+          </View>
         </Card>
 
         {/* Drop Location */}
@@ -371,6 +424,17 @@ const styles = StyleSheet.create({
   footerLabel: { fontSize: 12, color: Colors.textSecondary },
   footerFare:  { fontSize: 20, fontWeight: '800', color: Colors.primary },
   confirmBtn:  { flex: 1, marginLeft: Spacing.lg },
+
+  // Blood group chips
+  bloodGroupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  bgChip: {
+    paddingHorizontal: 14, paddingVertical: 6, borderRadius: BorderRadius.full,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
+    minWidth: 52, alignItems: 'center',
+  },
+  bgChipActive:    { backgroundColor: Colors.error || '#E53935', borderColor: Colors.error || '#E53935' },
+  bgChipText:      { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  bgChipTextActive:{ color: Colors.white },
 
   // Drop location autocomplete
   dropWrapper:   { position: 'relative' },

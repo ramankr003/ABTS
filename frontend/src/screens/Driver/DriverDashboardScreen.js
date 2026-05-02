@@ -203,6 +203,39 @@ export default function DriverDashboardScreen() {
         </Text>
       </View>
 
+      {/* Blood group */}
+      {item.patientDetails?.bloodGroup && item.patientDetails.bloodGroup !== 'unknown' ? (
+        <View style={styles.infoRow}>
+          <MaterialCommunityIcons name="water" size={16} color="#E53935" />
+          <Text style={styles.infoLabel}>Blood Group</Text>
+          <View style={styles.bloodBadge}>
+            <Text style={styles.bloodBadgeText}>{item.patientDetails.bloodGroup}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Emergency contact */}
+      {(item.patientDetails?.emergencyContact?.name || item.patientDetails?.emergencyContact?.phone) ? (
+        <View style={styles.emergencyContactBox}>
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="phone-alert" size={16} color="#E53935" />
+            <Text style={[styles.infoLabel, { color: '#E53935' }]}>Emergency Contact</Text>
+          </View>
+          {item.patientDetails.emergencyContact.name ? (
+            <View style={[styles.infoRow, { marginLeft: 24 }]}>
+              <MaterialCommunityIcons name="account-alert" size={14} color={Colors.textSecondary} />
+              <Text style={styles.infoText}>{item.patientDetails.emergencyContact.name}</Text>
+            </View>
+          ) : null}
+          {item.patientDetails.emergencyContact.phone ? (
+            <View style={[styles.infoRow, { marginLeft: 24 }]}>
+              <MaterialCommunityIcons name="phone" size={14} color={Colors.textSecondary} />
+              <Text style={styles.infoText}>{item.patientDetails.emergencyContact.phone}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* Pickup */}
       <View style={styles.infoRow}>
         <MaterialCommunityIcons name="map-marker" size={16} color={Colors.primary} />
@@ -369,6 +402,18 @@ const styles = StyleSheet.create({
 
   infoRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   infoText: { flex: 1, fontSize: 13, color: Colors.text },
+  infoLabel:{ fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+
+  bloodBadge: {
+    backgroundColor: '#FFEBEE', borderRadius: BorderRadius.full,
+    paddingHorizontal: 10, paddingVertical: 2, borderWidth: 1, borderColor: '#E53935',
+  },
+  bloodBadgeText: { fontSize: 12, fontWeight: '800', color: '#E53935' },
+
+  emergencyContactBox: {
+    backgroundColor: '#FFF8F8', borderRadius: BorderRadius.md,
+    borderWidth: 1, borderColor: '#FFCDD2', padding: Spacing.sm, gap: 4,
+  },
 
   fareRow:  { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: Colors.divider, paddingTop: Spacing.sm },
   fareLabel:{ fontSize: 13, color: Colors.textSecondary },
