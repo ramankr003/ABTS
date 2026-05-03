@@ -10,6 +10,7 @@ import { Colors }    from '../theme';
 
 import LoginScreen              from '../screens/Auth/LoginScreen';
 import RegisterScreen           from '../screens/Auth/RegisterScreen';
+import OtpVerificationScreen    from '../screens/Auth/OtpVerificationScreen';
 import HomeScreen               from '../screens/Home/HomeScreen';
 import AmbulanceListScreen      from '../screens/AmbulanceList/AmbulanceListScreen';
 import AmbulanceDetailsScreen   from '../screens/AmbulanceDetails/AmbulanceDetailsScreen';
@@ -61,8 +62,9 @@ function MainTabs() {
 function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login"    component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="Login"           component={LoginScreen} />
+      <Stack.Screen name="Register"        component={RegisterScreen} />
+      <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
     </Stack.Navigator>
   );
 }

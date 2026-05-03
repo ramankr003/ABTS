@@ -143,7 +143,7 @@ const seed = async () => {
   await User.create({
     name: 'Test Patient',
     email: 'user@abts.com',
-    phone: '8000000001',
+    phone: '9742316945',
     password: 'User@123',
     role: 'user',
     isVerified: true,

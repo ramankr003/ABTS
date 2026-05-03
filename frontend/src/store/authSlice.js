@@ -49,6 +49,17 @@ export const updateProfile = createAsyncThunk('auth/updateProfile', async (data,
   }
 });
 
+export const loginWithOtp = createAsyncThunk('auth/loginWithOtp', async (data, { rejectWithValue }) => {
+  try {
+    const res = await authApi.verifyOtp(data);
+    await AsyncStorage.setItem('abts_token', res.data.token);
+    await AsyncStorage.setItem('abts_user', JSON.stringify(res.data.user));
+    return res.data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'OTP verification failed.');
+  }
+});
+
 // ── Slice ──────────────────────────────────────────────────────────────────────
 
 const authSlice = createSlice({
@@ -90,6 +101,12 @@ const authSlice = createSlice({
     // updateProfile
     builder
       .addCase(updateProfile.fulfilled, (s, a) => { s.user = a.payload; });
+
+    // loginWithOtp
+    builder
+      .addCase(loginWithOtp.pending,   (s) => { s.isLoading = true;  s.error = null; })
+      .addCase(loginWithOtp.fulfilled, (s, a) => { s.isLoading = false; s.user = a.payload.user; s.token = a.payload.token; })
+      .addCase(loginWithOtp.rejected,  (s, a) => { s.isLoading = false; s.error = a.payload; });
   },
 });
 

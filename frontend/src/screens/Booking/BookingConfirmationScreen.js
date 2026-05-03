@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, ActivityIndicator,
+  TextInput, Alert, ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,6 +22,16 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   const [paymentMethod,  setPaymentMethod]  = useState('cash');
   const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '', bloodGroup: 'unknown' });
   const [emergencyContact, setEmergencyContact] = useState({ name: '', phone: '' });
+
+  // Pickup location (editable, pre-filled from home screen)
+  const [pickupAddress,    setPickupAddress]    = useState(route.params.searchText || '');
+  const [pickupCoords,     setPickupCoords]     = useState(location || null);
+  const [pickupSuggestions, setPickupSuggestions] = useState([]);
+  const [pickupSugLoading,  setPickupSugLoading]  = useState(false);
+  const [showPickupSug,     setShowPickupSug]     = useState(false);
+  const pickupDebounceRef = useRef(null);
+
+  // Drop location
   const [dropAddress,    setDropAddress]    = useState('');
   const [dropCoords,     setDropCoords]     = useState(null);
   const [dropSuggestions, setDropSuggestions] = useState([]);
@@ -29,26 +39,49 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   const [showDropSug,     setShowDropSug]     = useState(false);
   const dropDebounceRef = useRef(null);
 
+  const nominatimSearch = useCallback(async (query) => {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=in`;
+    const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const data = await res.json();
+    return data.map((r) => ({
+      label:     r.display_name,
+      shortLabel: [r.address?.road, r.address?.suburb, r.address?.city || r.address?.town || r.address?.village]
+                    .filter(Boolean).join(', ') || r.display_name,
+      lat: parseFloat(r.lat),
+      lng: parseFloat(r.lon),
+    }));
+  }, []);
+
+  const fetchPickupSuggestions = useCallback(async (query) => {
+    if (!query || query.length < 3) { setPickupSuggestions([]); return; }
+    setPickupSugLoading(true);
+    try { setPickupSuggestions(await nominatimSearch(query)); }
+    catch (_) { setPickupSuggestions([]); }
+    finally { setPickupSugLoading(false); }
+  }, [nominatimSearch]);
+
+  const handlePickupTextChange = (text) => {
+    setPickupAddress(text);
+    setPickupCoords(null); // coords invalidated until user picks suggestion
+    setShowPickupSug(true);
+    clearTimeout(pickupDebounceRef.current);
+    pickupDebounceRef.current = setTimeout(() => fetchPickupSuggestions(text), 400);
+  };
+
+  const handleSelectPickupSuggestion = (s) => {
+    setPickupAddress(s.shortLabel);
+    setPickupCoords({ latitude: s.lat, longitude: s.lng });
+    setPickupSuggestions([]);
+    setShowPickupSug(false);
+  };
+
   const fetchDropSuggestions = useCallback(async (query) => {
     if (!query || query.length < 3) { setDropSuggestions([]); return; }
     setDropSugLoading(true);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=in`;
-      const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-      const data = await res.json();
-      setDropSuggestions(data.map((r) => ({
-        label:     r.display_name,
-        shortLabel: [r.address?.road, r.address?.suburb, r.address?.city || r.address?.town || r.address?.village]
-                      .filter(Boolean).join(', ') || r.display_name,
-        lat: parseFloat(r.lat),
-        lng: parseFloat(r.lon),
-      })));
-    } catch (_) {
-      setDropSuggestions([]);
-    } finally {
-      setDropSugLoading(false);
-    }
-  }, []);
+    try { setDropSuggestions(await nominatimSearch(query)); }
+    catch (_) { setDropSuggestions([]); }
+    finally { setDropSugLoading(false); }
+  }, [nominatimSearch]);
 
   const handleDropTextChange = (text) => {
     setDropAddress(text);
@@ -84,19 +117,16 @@ export default function BookingConfirmationScreen({ route, navigation }) {
     }
   }, [booking]);
 
-  const handleConfirm = async () => {
-    if (!location) {
-      Alert.alert('Error', 'Pickup location is required.');
-      return;
-    }
+  const doBooking = async () => {
+    const resolvedPickup = pickupCoords || location;
 
     const result = await dispatch(
       createBooking({
         ambulanceId: ambulance._id,
         pickupLocation: {
           type: 'Point',
-          coordinates: [location.longitude, location.latitude],
-          address: route.params.searchText || 'Current Location',
+          coordinates: resolvedPickup ? [resolvedPickup.longitude, resolvedPickup.latitude] : [0, 0],
+          address: pickupAddress || 'Current Location',
         },
         dropLocation: dropAddress
           ? { type: 'Point', coordinates: dropCoords ? [dropCoords.longitude, dropCoords.latitude] : [0, 0], address: dropAddress }
@@ -119,6 +149,24 @@ export default function BookingConfirmationScreen({ route, navigation }) {
 
     if (createBooking.rejected.match(result)) {
       Alert.alert('Booking Failed', result.payload || 'Could not create booking. Please try again.');
+    }
+  };
+
+  const handleConfirm = () => {
+    const locationLabel = pickupAddress.trim() || 'Current GPS Location';
+    if (Platform.OS === 'web') {
+      // Alert buttons are not supported in Expo web — use browser confirm instead
+      const ok = window.confirm(`Confirm Pickup Location\n\nYour pickup location is set to:\n📍 ${locationLabel}\n\nIs this correct?`);
+      if (ok) doBooking();
+    } else {
+      Alert.alert(
+        'Confirm Pickup Location',
+        `Your pickup location is set to:\n\n📍 ${locationLabel}\n\nIs this correct?`,
+        [
+          { text: 'Edit', style: 'cancel' },
+          { text: 'Yes, Confirm', onPress: doBooking },
+        ]
+      );
     }
   };
 
@@ -155,6 +203,49 @@ export default function BookingConfirmationScreen({ route, navigation }) {
               <Text style={styles.infoLabel}>Base Fare</Text>
               <Text style={styles.infoValue}>{formatCurrency(ambulance.basePrice)}</Text>
             </View>
+          </View>
+        </Card>
+
+        {/* Pickup Location */}
+        <Card shadow="medium" style={[styles.section, { zIndex: 20, overflow: 'visible' }]}>
+          <Text style={styles.sectionTitle}>Pickup Location</Text>
+          <View style={styles.dropWrapper}>
+            <View style={styles.dropInputRow}>
+              <MaterialCommunityIcons name="map-marker" size={18} color={Colors.primary} style={styles.dropIcon} />
+              <TextInput
+                style={styles.dropInput}
+                value={pickupAddress}
+                onChangeText={handlePickupTextChange}
+                placeholder="Enter your pickup address"
+                placeholderTextColor={Colors.textMuted}
+                onFocus={() => pickupAddress.length >= 3 && setShowPickupSug(true)}
+                onBlur={() => setTimeout(() => setShowPickupSug(false), 150)}
+                returnKeyType="search"
+              />
+              {pickupSugLoading && <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 6 }} />}
+              {pickupCoords && !pickupSugLoading && (
+                <MaterialCommunityIcons name="check-circle" size={18} color={Colors.success || '#4caf50'} />
+              )}
+            </View>
+
+            {showPickupSug && pickupSuggestions.length > 0 && (
+              <View style={styles.dropSugBox}>
+                {pickupSuggestions.map((s, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[styles.dropSugItem, idx < pickupSuggestions.length - 1 && styles.dropSugBorder]}
+                    onPress={() => handleSelectPickupSuggestion(s)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons name="map-marker-outline" size={15} color={Colors.primary} style={{ marginRight: 8 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dropSugShort} numberOfLines={1}>{s.shortLabel}</Text>
+                      <Text style={styles.dropSugFull}  numberOfLines={1}>{s.label}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         </Card>
 
@@ -435,6 +526,9 @@ const styles = StyleSheet.create({
   bgChipActive:    { backgroundColor: Colors.error || '#E53935', borderColor: Colors.error || '#E53935' },
   bgChipText:      { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   bgChipTextActive:{ color: Colors.white },
+
+  pickupHint: { fontSize: 12, color: '#E53935', marginTop: 6, marginLeft: 4 },
+  dropInputRowError: { borderColor: '#E53935' },
 
   // Drop location autocomplete
   dropWrapper:   { position: 'relative' },
