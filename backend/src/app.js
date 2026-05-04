@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const ambulanceRoutes = require('./routes/ambulances');
 const bookingRoutes = require('./routes/bookings');
 const trackingRoutes = require('./routes/tracking');
+const adminRoutes = require('./routes/admin');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -55,6 +56,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/ambulances', ambulanceRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/tracking', trackingRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

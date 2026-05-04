@@ -29,9 +29,7 @@ export default function ProfileScreen({ navigation }) {
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
-      if (window.confirm('Are you sure you want to sign out?')) {
-        dispatch(logout());
-      }
+      dispatch(logout());
       return;
     }
     Alert.alert(
