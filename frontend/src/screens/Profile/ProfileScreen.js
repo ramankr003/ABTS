@@ -127,13 +127,15 @@ export default function ProfileScreen({ navigation }) {
         </Card>
 
         {/* Logout */}
-        <Button
-          title="Sign Out"
-          variant="outline"
+        <TouchableOpacity
+          style={[styles.logoutBtn, styles.logoutBtnInner]}
           onPress={handleLogout}
-          style={styles.logoutBtn}
-          icon={<MaterialCommunityIcons name="logout" size={18} color={Colors.primary} />}
-        />
+          onClick={handleLogout}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="logout" size={18} color={Colors.primary} />
+          <Text style={styles.logoutText}>Sign Out</Text>
+        </TouchableOpacity>
 
         <Text style={styles.version}>ABTS v1.0.0</Text>
       </ScrollView>
@@ -187,6 +189,13 @@ const styles = StyleSheet.create({
   menuItem:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
   menuDivider:{ borderBottomWidth: 1, borderBottomColor: Colors.divider },
   menuLabel:  { flex: 1, fontSize: 14, color: Colors.text, fontWeight: '500' },
-  logoutBtn:  { marginBottom: Spacing.lg },
+  logoutBtn:     { marginBottom: Spacing.lg },
+  logoutBtnInner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1.5, borderColor: Colors.primary,
+    backgroundColor: 'transparent',
+  },
+  logoutText: { fontSize: 15, fontWeight: '700', color: Colors.primary },
   version:    { textAlign: 'center', fontSize: 12, color: Colors.textMuted },
 });
