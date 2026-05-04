@@ -19,6 +19,7 @@ import LiveTrackingScreen       from '../screens/Tracking/LiveTrackingScreen';
 import ProfileScreen            from '../screens/Profile/ProfileScreen';
 import MyBookingsScreen         from '../screens/Booking/MyBookingsScreen';
 import DriverDashboardScreen    from '../screens/Driver/DriverDashboardScreen';
+import AdminDashboardScreen     from '../screens/Admin/AdminDashboardScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -154,5 +155,6 @@ export default function AppNavigator() {
 
   if (!user) return <AuthStack />;
   if (user.role === 'driver') return <DriverStack />;
+  if (user.role === 'admin')  return <AdminDashboardScreen />;
   return <AppStack />;
 }
