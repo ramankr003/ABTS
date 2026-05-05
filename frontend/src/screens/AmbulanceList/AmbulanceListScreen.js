@@ -11,6 +11,7 @@ import AmbulanceCard from '../../components/AmbulanceCard';
 import FilterModal   from '../../components/FilterModal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { Colors, Spacing, BorderRadius, Shadow } from '../../theme';
+import { DEFAULT_REGION } from '../../utils/constants';
 
 export default function AmbulanceListScreen({ route, navigation }) {
   const { location, emergencyType } = route.params || {};
@@ -29,8 +30,13 @@ export default function AmbulanceListScreen({ route, navigation }) {
 
   const buildParams = useCallback(() => {
     const params = { page, limit: 15, ...filters };
-    if (location?.latitude)  { params.lat = location.latitude;  params.lng = location.longitude; }
-    if (emergencyType)        params.emergencyType = emergencyType;
+    // Always send coordinates — use actual GPS or fall back to Bangalore centre
+    const lat = location?.latitude  ?? DEFAULT_REGION.latitude;
+    const lng = location?.longitude ?? DEFAULT_REGION.longitude;
+    params.lat         = lat;
+    params.lng         = lng;
+    params.maxDistance = 50000; // 50 km radius
+    if (emergencyType) params.emergencyType = emergencyType;
     return params;
   }, [page, filters, location, emergencyType]);
 
