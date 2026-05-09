@@ -8,7 +8,7 @@ exports.getStats = async (req, res, next) => {
     const [
       totalUsers, totalDrivers, totalAmbulances, totalBookings,
       pendingBookings, completedBookings, cancelledBookings,
-      availableAmbulances,
+      availableAmbulances, busyAmbulances,
     ] = await Promise.all([
       User.countDocuments({ role: 'user' }),
       User.countDocuments({ role: 'driver' }),
@@ -18,6 +18,7 @@ exports.getStats = async (req, res, next) => {
       Booking.countDocuments({ status: 'completed' }),
       Booking.countDocuments({ status: { $in: ['cancelled', 'rejected'] } }),
       Ambulance.countDocuments({ isAvailable: true }),
+      Ambulance.countDocuments({ isAvailable: false }),
     ]);
 
     // Total revenue from completed bookings
@@ -39,7 +40,7 @@ exports.getStats = async (req, res, next) => {
       stats: {
         totalUsers, totalDrivers, totalAmbulances, totalBookings,
         pendingBookings, completedBookings, cancelledBookings,
-        availableAmbulances, totalRevenue,
+        availableAmbulances, busyAmbulances, totalRevenue,
       },
       recentBookings,
     });
@@ -89,7 +90,29 @@ exports.getAllAmbulances = async (req, res, next) => {
     const ambulances = await Ambulance.find()
       .sort({ createdAt: -1 })
       .populate('owner', 'name email');
-    res.json({ success: true, ambulances });
+
+    // Attach active booking info to busy ambulances
+    const busyIds = ambulances.filter((a) => !a.isAvailable).map((a) => a._id);
+    const activeBookings = busyIds.length
+      ? await Booking.find({
+          ambulance: { $in: busyIds },
+          status: { $in: ['confirmed', 'in_progress'] },
+        })
+          .populate('user', 'name phone')
+          .select('ambulance status user pickupLocation createdAt')
+      : [];
+
+    const bookingByAmbulance = {};
+    activeBookings.forEach((b) => {
+      bookingByAmbulance[b.ambulance.toString()] = b;
+    });
+
+    const enriched = ambulances.map((a) => ({
+      ...a.toObject(),
+      activeBooking: bookingByAmbulance[a._id.toString()] || null,
+    }));
+
+    res.json({ success: true, ambulances: enriched });
   } catch (error) {
     next(error);
   }
