@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ABTS – Dual Mobile Demo</title>
+  <title>ABTS – Three-Role Live Demo</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -75,6 +75,7 @@
     }
     .label-user   { background: rgba(25,118,210,0.25); color: #64b5f6; border: 1px solid rgba(100,181,246,0.4); }
     .label-driver { background: rgba(46,125,50,0.25);  color: #81c784; border: 1px solid rgba(129,199,132,0.4); }
+    .label-admin  { background: rgba(198,40,40,0.25);  color: #ef9a9a; border: 1px solid rgba(239,154,154,0.4); }
 
     /* Phone shell */
     .phone-shell {
@@ -199,7 +200,7 @@
     </div>
     <div class="status-bar">
       <div class="dot"></div>
-      <span class="status-text">Live Demo &nbsp;·&nbsp; Backend :5000 &nbsp;·&nbsp; User :8081 &nbsp;·&nbsp; Driver :8082</span>
+      <div class="status-text">Live Demo &nbsp;·&nbsp; Backend :5000 &nbsp;·&nbsp; User :8081 &nbsp;·&nbsp; Driver :8082 &nbsp;·&nbsp; Admin :8083</div>
     </div>
   </div>
 
@@ -226,14 +227,6 @@
             <div class="cred-role">Patient account</div>
           </div>
           <div class="cred-pass">User@123</div>
-        </div>
-        <div class="cred-row">
-          <span class="cred-icon">👑</span>
-          <div class="cred-info">
-            <div class="cred-email">admin@abts.com</div>
-            <div class="cred-role">Admin account</div>
-          </div>
-          <div class="cred-pass">Admin@123</div>
         </div>
       </div>
     </div>
@@ -277,6 +270,33 @@
             <div class="cred-role">KA10 – Padma Venkat</div>
           </div>
           <div class="cred-pass">Driver@123</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="separator"></div>
+
+    <!-- ADMIN PHONE -->
+    <div class="phone-column">
+      <div class="phone-label label-admin">🛡️ Admin</div>
+
+      <div class="phone-shell">
+        <div class="phone-screen">
+          <iframe src="http://localhost:8083" title="Admin App" allow="geolocation"></iframe>
+        </div>
+      </div>
+
+      <div class="phone-url">localhost:8083</div>
+
+      <div class="credentials">
+        <div class="cred-title">Admin Credentials</div>
+        <div class="cred-row">
+          <span class="cred-icon">👑</span>
+          <div class="cred-info">
+            <div class="cred-email">admin@abts.com</div>
+            <div class="cred-role">System Administrator</div>
+          </div>
+          <div class="cred-pass">Admin@123</div>
         </div>
       </div>
     </div>

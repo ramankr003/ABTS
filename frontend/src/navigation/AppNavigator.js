@@ -205,5 +205,6 @@ export default function AppNavigator() {
   if (!user) return <AuthStack />;
   if (user.role === 'admin') return <AdminStack />;
   if (user.role === 'driver') return <DriverStack />;
+  if (user.role === 'admin')  return <AdminDashboardScreen />;
   return <AppStack />;
 }

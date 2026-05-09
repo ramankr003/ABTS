@@ -68,23 +68,33 @@ export default function HomeScreen({ navigation }) {
     setMapRegion({ latitude: s.lat, longitude: s.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 });
   };
 
-  // Fetch nearby ambulances when location is available
+  // Fetch ambulances on mount immediately with fallback Bangalore coords
   useEffect(() => {
-    if (location) {
-      setMapRegion({
-        latitude:       location.latitude,
-        longitude:      location.longitude,
-        latitudeDelta:  0.05,
-        longitudeDelta: 0.05,
-      });
-      dispatch(fetchAmbulances({
-        lat: location.latitude,
-        lng: location.longitude,
-        maxDistance: 20000,
-        available: 'true',
-        limit: 10,
-      }));
-    }
+    dispatch(fetchAmbulances({
+      lat: DEFAULT_REGION.latitude,
+      lng: DEFAULT_REGION.longitude,
+      maxDistance: 50000,
+      available: 'true',
+      limit: 20,
+    }));
+  }, [dispatch]);
+
+  // Re-fetch with actual GPS when available
+  useEffect(() => {
+    if (!location) return;
+    setMapRegion({
+      latitude:       location.latitude,
+      longitude:      location.longitude,
+      latitudeDelta:  0.05,
+      longitudeDelta: 0.05,
+    });
+    dispatch(fetchAmbulances({
+      lat: location.latitude,
+      lng: location.longitude,
+      maxDistance: 50000,
+      available: 'true',
+      limit: 20,
+    }));
   }, [location, dispatch]);
 
   useEffect(() => {
@@ -96,11 +106,7 @@ export default function HomeScreen({ navigation }) {
   }, [navigation, location, searchText]);
 
   const handleQuickBook = () => {
-    if (!location) {
-      Alert.alert('Location Required', 'Please allow location access first.');
-      return;
-    }
-    navigation.navigate('AmbulanceList', { location, searchText });
+    navigation.navigate('AmbulanceList', { location: location || { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude }, searchText });
   };
 
   const handleAmbulancePress = (amb) => {
@@ -235,7 +241,10 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.emptyBox}>
               <Text style={styles.emptyEmoji}>🔍</Text>
               <Text style={styles.emptyText}>No ambulances found nearby</Text>
-              <TouchableOpacity onPress={() => dispatch(fetchAmbulances({ limit: 20 }))}>
+              <TouchableOpacity onPress={() => dispatch(fetchAmbulances({
+                lat: DEFAULT_REGION.latitude, lng: DEFAULT_REGION.longitude,
+                maxDistance: 100000, limit: 20,
+              }))}>
                 <Text style={styles.retryText}>Show all ambulances</Text>
               </TouchableOpacity>
             </View>
