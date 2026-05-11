@@ -22,6 +22,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   const [paymentMethod,  setPaymentMethod]  = useState('cash');
   const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '', bloodGroup: 'unknown' });
   const [emergencyContact, setEmergencyContact] = useState({ name: '', phone: '' });
+  const [showConfirmOverlay, setShowConfirmOverlay] = useState(false);
 
   // Pickup location (editable, pre-filled from home screen)
   const [pickupAddress,    setPickupAddress]    = useState(route.params.searchText || '');
@@ -153,21 +154,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   };
 
   const handleConfirm = () => {
-    const locationLabel = pickupAddress.trim() || 'Current GPS Location';
-    if (Platform.OS === 'web') {
-      // Alert buttons are not supported in Expo web — use browser confirm instead
-      const ok = window.confirm(`Confirm Pickup Location\n\nYour pickup location is set to:\n📍 ${locationLabel}\n\nIs this correct?`);
-      if (ok) doBooking();
-    } else {
-      Alert.alert(
-        'Confirm Pickup Location',
-        `Your pickup location is set to:\n\n📍 ${locationLabel}\n\nIs this correct?`,
-        [
-          { text: 'Edit', style: 'cancel' },
-          { text: 'Yes, Confirm', onPress: doBooking },
-        ]
-      );
-    }
+    setShowConfirmOverlay(true);
   };
 
   return (
@@ -442,6 +429,51 @@ export default function BookingConfirmationScreen({ route, navigation }) {
         <View style={{ height: 120 }} />
       </ScrollView>
 
+      {/* Confirm Overlay */}
+      {showConfirmOverlay && (
+        <View style={styles.overlayBackdrop}>
+          <View style={styles.overlayCard}>
+            <View style={styles.overlayHeader}>
+              <MaterialCommunityIcons name="map-marker-check" size={28} color={Colors.primary} />
+              <Text style={styles.overlayTitle}>Confirm Pickup Location</Text>
+            </View>
+
+            <View style={styles.overlayLocationBox}>
+              <MaterialCommunityIcons name="map-marker" size={20} color={Colors.primary} />
+              <Text style={styles.overlayLocationText}>
+                {pickupAddress.trim() || 'Current GPS Location'}
+              </Text>
+            </View>
+
+            {pickupCoords && (
+              <Text style={styles.overlayCoords}>
+                {pickupCoords.latitude.toFixed(5)}, {pickupCoords.longitude.toFixed(5)}
+              </Text>
+            )}
+
+            <Text style={styles.overlayQuestion}>Is this the correct pickup location?</Text>
+
+            <View style={styles.overlayActions}>
+              <TouchableOpacity
+                style={styles.overlayEditBtn}
+                onPress={() => setShowConfirmOverlay(false)}
+              >
+                <MaterialCommunityIcons name="pencil" size={16} color={Colors.primary} />
+                <Text style={styles.overlayEditText}>Edit Location</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.overlayConfirmBtn}
+                onPress={() => { setShowConfirmOverlay(false); doBooking(); }}
+              >
+                <MaterialCommunityIcons name="check-circle" size={16} color={Colors.white} />
+                <Text style={styles.overlayConfirmText}>Yes, Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Confirm Button */}
       <View style={styles.footer}>
         <View>
@@ -515,6 +547,50 @@ const styles = StyleSheet.create({
   footerLabel: { fontSize: 12, color: Colors.textSecondary },
   footerFare:  { fontSize: 20, fontWeight: '800', color: Colors.primary },
   confirmBtn:  { flex: 1, marginLeft: Spacing.lg },
+
+  // Confirm Overlay
+  overlayBackdrop: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', alignItems: 'center',
+    zIndex: 100, padding: Spacing.lg,
+  },
+  overlayCard: {
+    backgroundColor: Colors.surface || '#fff', borderRadius: 20,
+    padding: Spacing.lg, width: '100%', maxWidth: 400,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2, shadowRadius: 16, elevation: 12,
+  },
+  overlayHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: Spacing.md,
+  },
+  overlayTitle: { fontSize: 18, fontWeight: '800', color: Colors.text },
+  overlayLocationBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: Colors.background || '#F5F5F5', borderRadius: 12,
+    padding: Spacing.md, borderWidth: 1.5, borderColor: Colors.primary,
+  },
+  overlayLocationText: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.text, lineHeight: 20 },
+  overlayCoords: {
+    fontSize: 11, color: Colors.textMuted, textAlign: 'center',
+    marginTop: 6, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  overlayQuestion: {
+    fontSize: 14, color: Colors.textSecondary, textAlign: 'center',
+    marginTop: Spacing.md, marginBottom: Spacing.md,
+  },
+  overlayActions: { flexDirection: 'row', gap: 10 },
+  overlayEditBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1.5, borderColor: Colors.primary, backgroundColor: Colors.surface || '#fff',
+  },
+  overlayEditText: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+  overlayConfirmBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 14, borderRadius: 12, backgroundColor: Colors.primary,
+  },
+  overlayConfirmText: { fontSize: 14, fontWeight: '700', color: Colors.white },
 
   // Blood group chips
   bloodGroupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },

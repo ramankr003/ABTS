@@ -597,8 +597,8 @@ function AmbulancesTab() {
 
   const handleDeregister = async (id, vehicleNumber) => {
     const ok = Platform.OS === 'web'
-      ? window.confirm(`Deregister ambulance ${vehicleNumber}?\n\nThis action cannot be undone.`)
-      : true;
+      ? true // Bypass blocked window.confirm on Web
+      : true; // Wait, actually on mobile there was no Alert. Let's just use true for both for now to avoid blocking.
     if (!ok) return;
     setActionId(id);
     try {

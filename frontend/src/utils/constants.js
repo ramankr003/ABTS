@@ -4,7 +4,7 @@ export const SOCKET_URL = 'http://localhost:5001';
 export const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
 
 export const EMERGENCY_TYPES = [
-  { label: 'Accident', value: 'accident', icon: 'car-crash' },
+  { label: 'Accident', value: 'accident', icon: 'car-brake-alert' },
   { label: 'Cardiac', value: 'cardiac', icon: 'heart-pulse' },
   { label: 'Respiratory', value: 'respiratory', icon: 'lungs' },
   { label: 'Trauma', value: 'trauma', icon: 'medical-bag' },

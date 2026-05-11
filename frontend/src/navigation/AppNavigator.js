@@ -19,6 +19,7 @@ import LiveTrackingScreen       from '../screens/Tracking/LiveTrackingScreen';
 import ProfileScreen            from '../screens/Profile/ProfileScreen';
 import MyBookingsScreen         from '../screens/Booking/MyBookingsScreen';
 import DriverDashboardScreen    from '../screens/Driver/DriverDashboardScreen';
+import DriverMapScreen          from '../screens/Driver/DriverMapScreen';
 import AdminDashboardScreen     from '../screens/Admin/AdminDashboardScreen';
 
 const Stack = createNativeStackNavigator();
@@ -133,6 +134,7 @@ function DriverStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="DriverTabs" component={DriverTabs} />
+      <Stack.Screen name="DriverMap"  component={DriverMapScreen} />
     </Stack.Navigator>
   );
 }
