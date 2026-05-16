@@ -11,25 +11,17 @@ import Button from '../../components/common/Button';
 import Card   from '../../components/common/Card';
 import { Colors, Spacing, BorderRadius, Typography } from '../../theme';
 import { formatCurrency, formatDistance, formatETA, getAmbulanceType, haversineDistance } from '../../utils/helpers';
-import { EMERGENCY_TYPES, PAYMENT_METHODS } from '../../utils/constants';
+import { PAYMENT_METHODS } from '../../utils/constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function BookingConfirmationScreen({ route, navigation }) {
   const { ambulance, location } = route.params;
   const dispatch = useDispatch();
   const { isCreating, current: booking, error } = useSelector((s) => s.booking);
 
-  const [emergencyType,  setEmergencyType]  = useState('general');
   const [paymentMethod,  setPaymentMethod]  = useState('cash');
   const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '', bloodGroup: 'unknown' });
   const [emergencyContact, setEmergencyContact] = useState({ name: '', phone: '' });
-
-  // Pickup location (editable, pre-filled from home screen)
-  const [pickupAddress,    setPickupAddress]    = useState(route.params.searchText || '');
-  const [pickupCoords,     setPickupCoords]     = useState(location || null);
-  const [pickupSuggestions, setPickupSuggestions] = useState([]);
-  const [pickupSugLoading,  setPickupSugLoading]  = useState(false);
-  const [showPickupSug,     setShowPickupSug]     = useState(false);
-  const pickupDebounceRef = useRef(null);
 
   // Drop location
   const [dropAddress,    setDropAddress]    = useState('');
@@ -51,29 +43,6 @@ export default function BookingConfirmationScreen({ route, navigation }) {
       lng: parseFloat(r.lon),
     }));
   }, []);
-
-  const fetchPickupSuggestions = useCallback(async (query) => {
-    if (!query || query.length < 3) { setPickupSuggestions([]); return; }
-    setPickupSugLoading(true);
-    try { setPickupSuggestions(await nominatimSearch(query)); }
-    catch (_) { setPickupSuggestions([]); }
-    finally { setPickupSugLoading(false); }
-  }, [nominatimSearch]);
-
-  const handlePickupTextChange = (text) => {
-    setPickupAddress(text);
-    setPickupCoords(null); // coords invalidated until user picks suggestion
-    setShowPickupSug(true);
-    clearTimeout(pickupDebounceRef.current);
-    pickupDebounceRef.current = setTimeout(() => fetchPickupSuggestions(text), 400);
-  };
-
-  const handleSelectPickupSuggestion = (s) => {
-    setPickupAddress(s.shortLabel);
-    setPickupCoords({ latitude: s.lat, longitude: s.lng });
-    setPickupSuggestions([]);
-    setShowPickupSug(false);
-  };
 
   const fetchDropSuggestions = useCallback(async (query) => {
     if (!query || query.length < 3) { setDropSuggestions([]); return; }
@@ -98,7 +67,21 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   };
 
   // Clear any stale booking from previous session on mount
-  useEffect(() => { dispatch(clearCurrent()); }, [dispatch]);
+  // Also load previously saved patient details
+  useEffect(() => {
+    dispatch(clearCurrent());
+    AsyncStorage.getItem('abts_saved_booking_details').then((raw) => {
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw);
+        if (saved.patientDetails)    setPatientDetails(saved.patientDetails);
+        if (saved.emergencyContact)  setEmergencyContact(saved.emergencyContact);
+        if (saved.dropAddress)       setDropAddress(saved.dropAddress);
+        if (saved.dropCoords)        setDropCoords(saved.dropCoords);
+        if (saved.paymentMethod)     setPaymentMethod(saved.paymentMethod);
+      } catch (_) {}
+    });
+  }, [dispatch]);
 
   const typeConfig = getAmbulanceType(ambulance.type);
 
@@ -118,20 +101,18 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   }, [booking]);
 
   const doBooking = async () => {
-    const resolvedPickup = pickupCoords || location;
-
     const result = await dispatch(
       createBooking({
         ambulanceId: ambulance._id,
         pickupLocation: {
           type: 'Point',
-          coordinates: resolvedPickup ? [resolvedPickup.longitude, resolvedPickup.latitude] : [0, 0],
-          address: pickupAddress || 'Current Location',
+          coordinates: location ? [location.longitude, location.latitude] : [0, 0],
+          address: route.params?.searchText || 'Current Location',
         },
         dropLocation: dropAddress
           ? { type: 'Point', coordinates: dropCoords ? [dropCoords.longitude, dropCoords.latitude] : [0, 0], address: dropAddress }
           : undefined,
-        emergencyType,
+        emergencyType: 'general',
         patientDetails: {
           name: patientDetails.name,
           age:  patientDetails.age ? parseInt(patientDetails.age) : undefined,
@@ -152,19 +133,31 @@ export default function BookingConfirmationScreen({ route, navigation }) {
     }
   };
 
+  const handleSaveDetails = async () => {
+    try {
+      await AsyncStorage.setItem(
+        'abts_saved_booking_details',
+        JSON.stringify({ patientDetails, emergencyContact, dropAddress, dropCoords, paymentMethod })
+      );
+      Alert.alert('Saved', 'Details have been saved and will be pre-filled next time.');
+    } catch (_) {
+      Alert.alert('Error', 'Could not save details. Please try again.');
+    }
+  };
+
   const handleConfirm = () => {
-    const locationLabel = pickupAddress.trim() || 'Current GPS Location';
+    const pickup = route.params?.searchText || 'Current GPS Location';
+    const message = `Pickup Location:\n${pickup}\n\nAre you sure you want to confirm this booking?`;
     if (Platform.OS === 'web') {
-      // Alert buttons are not supported in Expo web — use browser confirm instead
-      const ok = window.confirm(`Confirm Pickup Location\n\nYour pickup location is set to:\n📍 ${locationLabel}\n\nIs this correct?`);
+      const ok = window.confirm(`Confirm Booking\n\n${message}`);
       if (ok) doBooking();
     } else {
       Alert.alert(
-        'Confirm Pickup Location',
-        `Your pickup location is set to:\n\n📍 ${locationLabel}\n\nIs this correct?`,
+        'Confirm Booking',
+        message,
         [
-          { text: 'Edit', style: 'cancel' },
-          { text: 'Yes, Confirm', onPress: doBooking },
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Confirm', onPress: doBooking },
         ]
       );
     }
@@ -203,72 +196,6 @@ export default function BookingConfirmationScreen({ route, navigation }) {
               <Text style={styles.infoLabel}>Base Fare</Text>
               <Text style={styles.infoValue}>{formatCurrency(ambulance.basePrice)}</Text>
             </View>
-          </View>
-        </Card>
-
-        {/* Pickup Location */}
-        <Card shadow="medium" style={[styles.section, { zIndex: 20, overflow: 'visible' }]}>
-          <Text style={styles.sectionTitle}>Pickup Location</Text>
-          <View style={styles.dropWrapper}>
-            <View style={styles.dropInputRow}>
-              <MaterialCommunityIcons name="map-marker" size={18} color={Colors.primary} style={styles.dropIcon} />
-              <TextInput
-                style={styles.dropInput}
-                value={pickupAddress}
-                onChangeText={handlePickupTextChange}
-                placeholder="Enter your pickup address"
-                placeholderTextColor={Colors.textMuted}
-                onFocus={() => pickupAddress.length >= 3 && setShowPickupSug(true)}
-                onBlur={() => setTimeout(() => setShowPickupSug(false), 150)}
-                returnKeyType="search"
-              />
-              {pickupSugLoading && <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 6 }} />}
-              {pickupCoords && !pickupSugLoading && (
-                <MaterialCommunityIcons name="check-circle" size={18} color={Colors.success || '#4caf50'} />
-              )}
-            </View>
-
-            {showPickupSug && pickupSuggestions.length > 0 && (
-              <View style={styles.dropSugBox}>
-                {pickupSuggestions.map((s, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[styles.dropSugItem, idx < pickupSuggestions.length - 1 && styles.dropSugBorder]}
-                    onPress={() => handleSelectPickupSuggestion(s)}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons name="map-marker-outline" size={15} color={Colors.primary} style={{ marginRight: 8 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.dropSugShort} numberOfLines={1}>{s.shortLabel}</Text>
-                      <Text style={styles.dropSugFull}  numberOfLines={1}>{s.label}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        </Card>
-
-        {/* Emergency Type */}
-        <Card shadow="light" style={styles.section}>
-          <Text style={styles.sectionTitle}>Emergency Type</Text>
-          <View style={styles.chipGrid}>
-            {EMERGENCY_TYPES.map((t) => (
-              <TouchableOpacity
-                key={t.value}
-                style={[styles.eChip, emergencyType === t.value && styles.eChipActive]}
-                onPress={() => setEmergencyType(t.value)}
-              >
-                <MaterialCommunityIcons
-                  name={t.icon}
-                  size={16}
-                  color={emergencyType === t.value ? Colors.white : Colors.textSecondary}
-                />
-                <Text style={[styles.eChipText, emergencyType === t.value && styles.eChipTextActive]}>
-                  {t.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
           </View>
         </Card>
 
@@ -439,23 +366,29 @@ export default function BookingConfirmationScreen({ route, navigation }) {
           <Text style={styles.fareDisclaimer}>* Final fare may vary based on actual distance</Text>
         </Card>
 
-        <View style={{ height: 120 }} />
+        <View style={{ height: 160 }} />
       </ScrollView>
 
-      {/* Confirm Button */}
+      {/* Footer Buttons */}
       <View style={styles.footer}>
-        <View>
-          <Text style={styles.footerLabel}>Estimated Fare</Text>
-          <Text style={styles.footerFare}>{formatCurrency(fare.total)}</Text>
+        <View style={styles.footerTopRow}>
+          <View>
+            <Text style={styles.footerLabel}>Estimated Fare</Text>
+            <Text style={styles.footerFare}>{formatCurrency(fare.total)}</Text>
+          </View>
+          <Button
+            title="Confirm Booking"
+            onPress={handleConfirm}
+            loading={isCreating}
+            size="lg"
+            style={styles.confirmBtn}
+            icon={<MaterialCommunityIcons name="check-circle" size={20} color={Colors.white} />}
+          />
         </View>
-        <Button
-          title="Confirm Booking"
-          onPress={handleConfirm}
-          loading={isCreating}
-          size="lg"
-          style={styles.confirmBtn}
-          icon={<MaterialCommunityIcons name="check-circle" size={20} color={Colors.white} />}
-        />
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSaveDetails}>
+          <MaterialCommunityIcons name="content-save-outline" size={18} color={Colors.primary} />
+          <Text style={styles.saveBtnText}>Save Details</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -478,6 +411,8 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 11, color: Colors.textSecondary },
   infoValue: { fontSize: 13, fontWeight: '700', color: Colors.text },
   chipGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  readonlyRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: BorderRadius.md, padding: Spacing.sm },
+  readonlyText: { flex: 1, fontSize: 14, color: Colors.text, fontWeight: '500' },
   eChip:     { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface },
   eChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   eChipText:   { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
@@ -506,15 +441,31 @@ const styles = StyleSheet.create({
   footer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: Colors.surface,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+    flexDirection: 'column',
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
     borderTopWidth: 1, borderTopColor: Colors.border,
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1, shadowRadius: 8, elevation: 8,
   },
+  footerTopRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
   footerLabel: { fontSize: 12, color: Colors.textSecondary },
   footerFare:  { fontSize: 20, fontWeight: '800', color: Colors.primary },
   confirmBtn:  { flex: 1, marginLeft: Spacing.lg },
+  saveBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: Colors.primary, borderRadius: BorderRadius.md,
+    paddingVertical: 10, marginTop: 2,
+  },
+  saveBtnText: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+  reSearchBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: Colors.primary, borderRadius: BorderRadius.md,
+    paddingVertical: 12, marginBottom: Spacing.md,
+  },
+  reSearchText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
 
   // Blood group chips
   bloodGroupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },

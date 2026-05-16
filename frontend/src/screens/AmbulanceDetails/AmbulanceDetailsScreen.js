@@ -14,7 +14,7 @@ import { getAmbulanceType, formatDistance, formatETA, formatCurrency, getAvailab
 import { FACILITIES } from '../../utils/constants';
 
 export default function AmbulanceDetailsScreen({ route, navigation }) {
-  const { ambulanceId, location } = route.params;
+  const { ambulanceId, location, searchText } = route.params;
   const dispatch = useDispatch();
   const { selected: ambulance, isLoadingDetails } = useSelector((s) => s.ambulance);
 
@@ -35,7 +35,7 @@ export default function AmbulanceDetailsScreen({ route, navigation }) {
       Alert.alert('Location Required', 'We need your pickup location to proceed.');
       return;
     }
-    navigation.navigate('BookingConfirmation', { ambulance, location });
+    navigation.navigate('BookingConfirmation', { ambulance, location, searchText });
   };
 
   const FacilityRow = ({ facility }) => {

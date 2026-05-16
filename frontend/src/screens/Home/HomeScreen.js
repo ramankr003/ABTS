@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, FlatList, Alert, ActivityIndicator, Platform,
@@ -8,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchAmbulances } from '../../store/ambulanceSlice';
 import { useLocation } from '../../hooks/useLocation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapComponent from '../../components/MapComponent';
 import AmbulanceCard from '../../components/AmbulanceCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -25,7 +27,8 @@ export default function HomeScreen({ navigation }) {
   const [suggestions, setSuggestions]       = useState([]);
   const [sugLoading, setSugLoading]         = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const debounceRef = useRef(null);
+  const debounceRef    = useRef(null);
+  const savedPickupRef = useRef(''); // persists user-selected pickup across focus cycles
   const [mapRegion, setMapRegion]     = useState(DEFAULT_REGION);
   const [showMap, setShowMap]         = useState(true);
 
@@ -65,7 +68,10 @@ export default function HomeScreen({ navigation }) {
     const newLoc = { latitude: s.lat, longitude: s.lng };
     setLocation(newLoc);
     setAddress(s.shortLabel);
+    savedPickupRef.current = s.shortLabel; // remember user's pick
     setMapRegion({ latitude: s.lat, longitude: s.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+    // Persist immediately so booking page always has the latest pickup
+    AsyncStorage.setItem('abts_last_pickup', JSON.stringify({ address: s.shortLabel, coords: newLoc })).catch(() => {});
   };
 
   // Fetch ambulances on mount immediately with fallback Bangalore coords
@@ -101,16 +107,37 @@ export default function HomeScreen({ navigation }) {
     if (address) setSearchText(address);
   }, [address]);
 
+  // Save to AsyncStorage whenever GPS resolves an address
+  useEffect(() => {
+    if (address && location) {
+      AsyncStorage.setItem('abts_last_pickup', JSON.stringify({ address, coords: location })).catch(() => {});
+    }
+  }, [address, location]);
+
+  // Clear pickup field every time Home tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      setSearchText('');
+      setSuggestions([]);
+      setShowSuggestions(false);
+      savedPickupRef.current = ''; // reset so new selection is always fresh
+    }, [])
+  );
+
   const handleSearch = useCallback(() => {
-    navigation.navigate('AmbulanceList', { location, searchText });
-  }, [navigation, location, searchText]);
+    // savedPickupRef.current takes priority — GPS cannot override user's explicit selection
+    const pickup = savedPickupRef.current || searchText || address || '';
+    navigation.navigate('AmbulanceList', { location, searchText: pickup });
+  }, [navigation, location, searchText, address]);
 
   const handleQuickBook = () => {
-    navigation.navigate('AmbulanceList', { location: location || { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude }, searchText });
+    const pickup = savedPickupRef.current || searchText || address || '';
+    navigation.navigate('AmbulanceList', { location: location || { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude }, searchText: pickup });
   };
 
   const handleAmbulancePress = (amb) => {
-    navigation.navigate('AmbulanceDetails', { ambulanceId: amb._id, location });
+    const pickup = savedPickupRef.current || searchText || address || '';
+    navigation.navigate('AmbulanceDetails', { ambulanceId: amb._id, location, searchText: pickup });
   };
 
   return (
