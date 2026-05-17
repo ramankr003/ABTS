@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchAmbulances } from '../../store/ambulanceSlice';
 import { useLocation } from '../../hooks/useLocation';
@@ -25,9 +26,14 @@ export default function HomeScreen({ navigation }) {
   const [suggestions, setSuggestions]       = useState([]);
   const [sugLoading, setSugLoading]         = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isFocused, setIsFocused]           = useState(false);
+  const [manualLocation, setManualLocation] = useState(null); // User-selected location (takes priority over GPS)
   const debounceRef = useRef(null);
   const [mapRegion, setMapRegion]     = useState(DEFAULT_REGION);
   const [showMap, setShowMap]         = useState(true);
+
+  // The effective location: manual selection takes priority over GPS
+  const effectiveLocation = manualLocation || location;
 
   // Fetch address suggestions from Nominatim (OpenStreetMap)
   const fetchSuggestions = useCallback(async (query) => {
@@ -59,13 +65,38 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleSelectSuggestion = (s) => {
+    const newLoc = { latitude: s.lat, longitude: s.lng };
+    setManualLocation(newLoc); // Lock in the user's choice (GPS won't overwrite this)
     setSearchText(s.shortLabel);
     setSuggestions([]);
     setShowSuggestions(false);
-    const newLoc = { latitude: s.lat, longitude: s.lng };
+    setIsFocused(false);
     setLocation(newLoc);
     setAddress(s.shortLabel);
     setMapRegion({ latitude: s.lat, longitude: s.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+    // Fetch ambulances for the manually selected location
+    dispatch(fetchAmbulances({ lat: s.lat, lng: s.lng, maxDistance: 50000, available: 'true', limit: 20 }));
+  };
+
+  const handleUseCurrentLocation = () => {
+    setManualLocation(null); // Clear manual selection so GPS takes over again
+    setShowSuggestions(false);
+    setIsFocused(false);
+    getCurrentLocation();
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    if (searchText.length >= 3) {
+      setShowSuggestions(true);
+    }
+  };
+
+  const handleBlur = () => {
+    setTimeout(() => {
+      setShowSuggestions(false);
+      setIsFocused(false);
+    }, 200);
   };
 
   // Fetch ambulances on mount immediately with fallback Bangalore coords
@@ -79,9 +110,9 @@ export default function HomeScreen({ navigation }) {
     }));
   }, [dispatch]);
 
-  // Re-fetch with actual GPS when available
+  // Re-fetch with actual GPS when available (only if user hasn't manually selected a location)
   useEffect(() => {
-    if (!location) return;
+    if (!location || manualLocation) return;
     setMapRegion({
       latitude:       location.latitude,
       longitude:      location.longitude,
@@ -95,22 +126,23 @@ export default function HomeScreen({ navigation }) {
       available: 'true',
       limit: 20,
     }));
-  }, [location, dispatch]);
+  }, [location, dispatch, manualLocation]);
 
+  // Sync GPS address to search text (only if user hasn't manually selected)
   useEffect(() => {
-    if (address) setSearchText(address);
-  }, [address]);
+    if (address && !manualLocation) setSearchText(address);
+  }, [address, manualLocation]);
 
   const handleSearch = useCallback(() => {
-    navigation.navigate('AmbulanceList', { location, searchText });
-  }, [navigation, location, searchText]);
+    navigation.navigate('AmbulanceList', { location: effectiveLocation, searchText });
+  }, [navigation, effectiveLocation, searchText]);
 
   const handleQuickBook = () => {
-    navigation.navigate('AmbulanceList', { location: location || { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude }, searchText });
+    navigation.navigate('AmbulanceList', { location: effectiveLocation || { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude }, searchText });
   };
 
   const handleAmbulancePress = (amb) => {
-    navigation.navigate('AmbulanceDetails', { ambulanceId: amb._id, location });
+    navigation.navigate('AmbulanceDetails', { ambulanceId: amb._id, location: effectiveLocation, searchText });
   };
 
   return (
@@ -134,28 +166,28 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.searchWrapper}>
           <View style={[styles.searchBar, Shadow.medium]}>
             <MaterialCommunityIcons name="map-marker" size={20} color={Colors.primary} />
-            <TextInput
+          <TextInput
               style={styles.searchInput}
               value={searchText}
               onChangeText={handleSearchTextChange}
               placeholder="Enter pickup location…"
               placeholderTextColor={Colors.textMuted}
               onSubmitEditing={handleSearch}
-              onFocus={() => searchText.length >= 3 && setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
               returnKeyType="search"
             />
             {sugLoading || locLoading ? (
               <ActivityIndicator size="small" color={Colors.primary} />
             ) : (
-              <TouchableOpacity onPress={getCurrentLocation}>
+              <TouchableOpacity onPress={handleUseCurrentLocation}>
                 <MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.secondary} />
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Suggestions dropdown */}
-          {showSuggestions && suggestions.length > 0 && (
+          {/* Dropdown: Suggestions OR History + Current Location */}
+          {(showSuggestions && suggestions.length > 0) ? (
             <View style={[styles.suggestionsBox, Shadow.medium]}>
               {suggestions.map((s, idx) => (
                 <TouchableOpacity
@@ -172,7 +204,22 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
               ))}
             </View>
-          )}
+          ) : isFocused && searchText.length < 3 ? (
+            <View style={[styles.suggestionsBox, Shadow.medium]}>
+              {/* Use Current Location */}
+              <TouchableOpacity
+                style={styles.suggestionItem}
+                onPress={handleUseCurrentLocation}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="crosshairs-gps" size={16} color={Colors.secondary} style={styles.suggestionIcon} />
+                <View style={styles.suggestionTexts}>
+                  <Text style={[styles.suggestionShort, { color: Colors.secondary }]}>Use Current Location</Text>
+                  <Text style={styles.suggestionFull}>Detect your GPS location automatically</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
 
         {/* Emergency type quick selector */}
@@ -183,7 +230,7 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity
                 key={t.value}
                 style={styles.typeChip}
-                onPress={() => navigation.navigate('AmbulanceList', { location, emergencyType: t.value })}
+                onPress={() => navigation.navigate('AmbulanceList', { location: effectiveLocation, emergencyType: t.value, searchText })}
               >
                 <MaterialCommunityIcons name={t.icon} size={22} color={Colors.primary} />
                 <Text style={styles.typeLabel}>{t.label}</Text>
