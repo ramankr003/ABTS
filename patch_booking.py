@@ -189,7 +189,9 @@ styles_injection = """
   },
 });
 """
-content = content.replace("});", styles_injection)
+
+parts = content.rsplit("});", 1)
+content = styles_injection.join(parts)
 
 with open('frontend/src/screens/Booking/BookingConfirmationScreen.js', 'w') as f:
     f.write(content)

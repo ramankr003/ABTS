@@ -20,92 +20,8 @@ export default function BookingConfirmationScreen({ route, navigation }) {
 
   const [emergencyType,  setEmergencyType]  = useState('general');
   const [paymentMethod,  setPaymentMethod]  = useState('cash');
-  const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '', bloodGroup: 'unknown' 
-  // Required facilities
-  facilityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  facilityChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  facilityChipText: { fontSize: 12, fontWeight: '600' },
-
-  // Patient Consent
-  consentCard: {
-    backgroundColor: Colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
-  },
-  consentTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: Colors.text,
-  },
-  consentText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  checkboxText: {
-    marginLeft: 10,
-    flex: 1,
-    fontSize: 14,
-    color: Colors.text,
-  },
-});
-
-  const [emergencyContact, setEmergencyContact] = useState({ name: '', phone: '' 
-  // Required facilities
-  facilityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  facilityChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  facilityChipText: { fontSize: 12, fontWeight: '600' },
-
-  // Patient Consent
-  consentCard: {
-    backgroundColor: Colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
-  },
-  consentTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: Colors.text,
-  },
-  consentText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  checkboxText: {
-    marginLeft: 10,
-    flex: 1,
-    fontSize: 14,
-    color: Colors.text,
-  },
-});
-
+  const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '', bloodGroup: 'unknown' });
+  const [emergencyContact, setEmergencyContact] = useState({ name: '', phone: '' });
   const [showConfirmOverlay, setShowConfirmOverlay] = useState(false);
   const [requiredFacilities, setRequiredFacilities] = useState([]);
   const [guardianName, setGuardianName] = useState('');
@@ -131,49 +47,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
 
   const nominatimSearch = useCallback(async (query) => {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=in`;
-    const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } 
-  // Required facilities
-  facilityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  facilityChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  facilityChipText: { fontSize: 12, fontWeight: '600' },
-
-  // Patient Consent
-  consentCard: {
-    backgroundColor: Colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
-  },
-  consentTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: Colors.text,
-  },
-  consentText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  checkboxText: {
-    marginLeft: 10,
-    flex: 1,
-    fontSize: 14,
-    color: Colors.text,
-  },
-});
-
+    const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } });
     const data = await res.json();
     return data.map((r) => ({
       label:     r.display_name,
@@ -202,49 +76,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
 
   const handleSelectPickupSuggestion = (s) => {
     setPickupAddress(s.shortLabel);
-    setPickupCoords({ latitude: s.lat, longitude: s.lng 
-  // Required facilities
-  facilityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  facilityChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  facilityChipText: { fontSize: 12, fontWeight: '600' },
-
-  // Patient Consent
-  consentCard: {
-    backgroundColor: Colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
-  },
-  consentTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: Colors.text,
-  },
-  consentText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  checkboxText: {
-    marginLeft: 10,
-    flex: 1,
-    fontSize: 14,
-    color: Colors.text,
-  },
-});
-
+    setPickupCoords({ latitude: s.lat, longitude: s.lng });
     setPickupSuggestions([]);
     setShowPickupSug(false);
   };
@@ -266,49 +98,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
 
   const handleSelectDropSuggestion = (s) => {
     setDropAddress(s.shortLabel);
-    setDropCoords({ latitude: s.lat, longitude: s.lng 
-  // Required facilities
-  facilityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  facilityChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  facilityChipText: { fontSize: 12, fontWeight: '600' },
-
-  // Patient Consent
-  consentCard: {
-    backgroundColor: Colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
-  },
-  consentTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: Colors.text,
-  },
-  consentText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  checkboxText: {
-    marginLeft: 10,
-    flex: 1,
-    fontSize: 14,
-    color: Colors.text,
-  },
-});
-
+    setDropCoords({ latitude: s.lat, longitude: s.lng });
     setDropSuggestions([]);
     setShowDropSug(false);
   };
@@ -329,49 +119,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   // Once booking is created, move to tracking or confirmation
   useEffect(() => {
     if (booking && booking.status === 'pending') {
-      navigation.replace('LiveTracking', { bookingId: booking._id 
-  // Required facilities
-  facilityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  facilityChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  facilityChipText: { fontSize: 12, fontWeight: '600' },
-
-  // Patient Consent
-  consentCard: {
-    backgroundColor: Colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
-  },
-  consentTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: Colors.text,
-  },
-  consentText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  checkboxText: {
-    marginLeft: 10,
-    flex: 1,
-    fontSize: 14,
-    color: Colors.text,
-  },
-});
-
+      navigation.replace('LiveTracking', { bookingId: booking._id });
     }
   }, [booking]);
 
