@@ -46,6 +46,11 @@ const bookingSchema = new mongoose.Schema(
       enum: ['accident', 'cardiac', 'respiratory', 'trauma', 'maternity', 'general', 'other'],
       default: 'general',
     },
+    requiredFacilities: {
+      type: [String],
+      enum: ['oxygen', 'saline', 'stretcher', 'nurse', 'doctor', 'ventilator', 'defibrillator'],
+      default: [],
+    },
     patientDetails: {
       name:      { type: String },
       age:       { type: Number, min: 0, max: 150 },
@@ -87,6 +92,27 @@ const bookingSchema = new mongoose.Schema(
       stars:    { type: Number, min: 1, max: 5 },
       feedback: { type: String },
       givenAt:  { type: Date },
+    },
+    patientConsent: {
+      accepted: {
+        type: Boolean,
+        default: false,
+      },
+      acceptedAt: {
+        type: Date,
+      },
+      guardianName: {
+        type: String,
+        default: '',
+      },
+      relation: {
+        type: String,
+        default: '',
+      },
+      emergencyRiskAccepted: {
+        type: Boolean,
+        default: false,
+      },
     },
   },
   { timestamps: true }

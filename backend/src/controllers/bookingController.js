@@ -14,6 +14,8 @@ exports.createBooking = async (req, res, next) => {
       patientDetails,
       estimatedDistance = 0,
       paymentMethod = 'cash',
+      requiredFacilities = [],
+      patientConsent,
     } = req.body;
 
     if (!ambulanceId || !pickupLocation) {
@@ -40,10 +42,12 @@ exports.createBooking = async (req, res, next) => {
       pickupLocation,
       dropLocation,
       emergencyType,
+      requiredFacilities,
       patientDetails,
       estimatedDistance,
       fare,
       paymentMethod,
+      patientConsent,
     });
 
     await booking.populate([
