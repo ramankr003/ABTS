@@ -21,6 +21,7 @@ export const FACILITIES = [
   { key: 'doctor', label: 'Doctor', icon: 'doctor' },
   { key: 'defibrillator', label: 'Defibrillator', icon: 'lightning-bolt' },
   { key: 'ventilator', label: 'Ventilator', icon: 'air-filter' },
+  { key: 'cctvCamera', label: 'CCTV Camera', icon: 'cctv' },
 ];
 
 export const AMBULANCE_TYPES = [
