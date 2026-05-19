@@ -47,7 +47,12 @@ export default function HomeScreen({ navigation }) {
     if (!query || query.length < 3) { setSuggestions([]); return; }
     setSugLoading(true);
     try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=in`;
+      // Bug #8 fix: bias results toward the user's current location
+      const loc = effectiveLocation || { latitude: 12.9716, longitude: 77.5946 };
+      const lat = loc.coords ? loc.coords.latitude  : loc.latitude;
+      const lng = loc.coords ? loc.coords.longitude : loc.longitude;
+      const viewbox = `${lng - 0.5},${lat + 0.5},${lng + 0.5},${lat - 0.5}`;
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=in&viewbox=${viewbox}&bounded=0`;
       const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } });
       const data = await res.json();
       setSuggestions(data.map((r) => ({

@@ -20,7 +20,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
 
   const [emergencyType,  setEmergencyType]  = useState('general');
   const [paymentMethod,  setPaymentMethod]  = useState('cash');
-  const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '', bloodGroup: 'unknown' });
+  const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '', bloodGroup: '' });
   const [emergencyContact, setEmergencyContact] = useState({ name: '', phone: '' });
   const [showConfirmOverlay, setShowConfirmOverlay] = useState(false);
   const [requiredFacilities, setRequiredFacilities] = useState([]);
@@ -46,7 +46,11 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   const dropDebounceRef = useRef(null);
 
   const nominatimSearch = useCallback(async (query) => {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=in`;
+    // Bug #8 fix: bias results near ambulance / pickup coords
+    const biasLat = pickupCoords?.latitude  ?? location?.latitude  ?? 12.9716;
+    const biasLng = pickupCoords?.longitude ?? location?.longitude ?? 77.5946;
+    const viewbox = `${biasLng - 0.5},${biasLat + 0.5},${biasLng + 0.5},${biasLat - 0.5}`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=in&viewbox=${viewbox}&bounded=0`;
     const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } });
     const data = await res.json();
     return data.map((r) => ({
@@ -56,7 +60,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
       lat: parseFloat(r.lat),
       lng: parseFloat(r.lon),
     }));
-  }, []);
+  }, [pickupCoords, location]);
 
   const fetchPickupSuggestions = useCallback(async (query) => {
     if (!query || query.length < 3) { setPickupSuggestions([]); return; }
@@ -158,7 +162,23 @@ export default function BookingConfirmationScreen({ route, navigation }) {
     }
   };
 
+  // Cross-platform alert helper
+  const showAlert = (title, msg) => {
+    if (Platform.OS === 'web') { window.alert(`${title}\n\n${msg}`); }
+    else { Alert.alert(title, msg); }
+  };
+
   const handleConfirm = () => {
+    // Bug #4 fix: validate drop location before showing overlay
+    if (!dropCoords && dropAddress.trim()) {
+      showAlert('Invalid Drop Location', 'Please select a valid drop location from the suggestions list.');
+      return;
+    }
+    // Bug #3 fix: validate consent before showing overlay
+    if (!consentAccepted || !riskAccepted) {
+      showAlert('Consent Required', 'Please accept both the patient consent terms and emergency risk acknowledgement at the bottom of the form.');
+      return;
+    }
     setShowConfirmOverlay(true);
   };
 
@@ -303,24 +323,18 @@ export default function BookingConfirmationScreen({ route, navigation }) {
             numberOfLines={3}
           />
 
-          {/* Blood Group */}
-          <Text style={[styles.inputLabel, { marginTop: Spacing.md, marginBottom: 8 }]}>Blood Group</Text>
+          {/* Blood Group - Bug #9 fix: no pre-selected 'unknown' */}
+          <Text style={[styles.inputLabel, { marginTop: Spacing.md, marginBottom: 8 }]}>Blood Group (Optional)</Text>
           <View style={styles.bloodGroupGrid}>
-            {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
+            {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'].map((bg) => (
               <TouchableOpacity
                 key={bg}
-                style={[styles.bgChip, patientDetails.bloodGroup === bg && styles.bgChipActive]}
-                onPress={() => setPatientDetails((p) => ({ ...p, bloodGroup: bg }))}
+                style={[styles.bgChip, patientDetails.bloodGroup === bg.toLowerCase().replace('+','+').replace('-','-') && styles.bgChipActive]}
+                onPress={() => setPatientDetails((p) => ({ ...p, bloodGroup: bg === 'Unknown' ? 'unknown' : bg }))}
               >
-                <Text style={[styles.bgChipText, patientDetails.bloodGroup === bg && styles.bgChipTextActive]}>{bg}</Text>
+                <Text style={[styles.bgChipText, patientDetails.bloodGroup === (bg === 'Unknown' ? 'unknown' : bg) && styles.bgChipTextActive]}>{bg}</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity
-              style={[styles.bgChip, patientDetails.bloodGroup === 'unknown' && styles.bgChipActive]}
-              onPress={() => setPatientDetails((p) => ({ ...p, bloodGroup: 'unknown' }))}
-            >
-              <Text style={[styles.bgChipText, patientDetails.bloodGroup === 'unknown' && styles.bgChipTextActive]}>Unknown</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Emergency Contact */}
@@ -394,6 +408,46 @@ export default function BookingConfirmationScreen({ route, navigation }) {
             )}
           </View>
         </Card>
+
+        {/* Required Facilities — Bug #6 fix: only show what this ambulance has */}
+        {(() => {
+          const availFacs = FACILITIES.filter((f) => ambulance.facilities?.[f.key]);
+          if (availFacs.length === 0) return null;
+          return (
+            <Card shadow="light" style={styles.section}>
+              <Text style={styles.sectionTitle}>Required Facilities</Text>
+              <Text style={[styles.inputLabel, { marginBottom: 10 }]}>
+                Select any special facilities you need (based on this ambulance's equipment)
+              </Text>
+              <View style={styles.facilityChips}>
+                {availFacs.map((fac) => {
+                  const isSelected = requiredFacilities.includes(fac.key);
+                  return (
+                    <TouchableOpacity
+                      key={fac.key}
+                      style={[
+                        styles.facilityChip,
+                        { backgroundColor: isSelected ? Colors.primary : Colors.background },
+                      ]}
+                      onPress={() => setRequiredFacilities((prev) =>
+                        prev.includes(fac.key) ? prev.filter((k) => k !== fac.key) : [...prev, fac.key]
+                      )}
+                    >
+                      <MaterialCommunityIcons
+                        name={fac.icon}
+                        size={16}
+                        color={isSelected ? Colors.white : Colors.textMuted}
+                      />
+                      <Text style={[styles.facilityChipText, { color: isSelected ? Colors.white : Colors.textSecondary }]}>
+                        {fac.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </Card>
+          );
+        })()}
 
         {/* Payment Method */}
         <Card shadow="light" style={styles.section}>
@@ -489,6 +543,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
           title="Confirm Booking"
           onPress={handleConfirm}
           loading={isCreating}
+          disabled={isCreating}
           size="lg"
           style={styles.confirmBtn}
           icon={<MaterialCommunityIcons name="check-circle" size={20} color={Colors.white} />}
