@@ -138,8 +138,9 @@ export default function BookingConfirmationScreen({ route, navigation }) {
           coordinates: resolvedPickup ? [resolvedPickup.longitude, resolvedPickup.latitude] : [0, 0],
           address: pickupAddress || 'Current Location',
         },
-        dropLocation: dropAddress
-          ? { type: 'Point', coordinates: dropCoords ? [dropCoords.longitude, dropCoords.latitude] : [0, 0], address: dropAddress }
+        // Drop location is fully optional — only include it if coords were resolved from a suggestion
+        dropLocation: (dropCoords && dropAddress)
+          ? { type: 'Point', coordinates: [dropCoords.longitude, dropCoords.latitude], address: dropAddress }
           : undefined,
         emergencyType,
         patientDetails: {
@@ -169,14 +170,9 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   };
 
   const handleConfirm = () => {
-    // Bug #4 fix: validate drop location before showing overlay
-    if (!dropCoords && dropAddress.trim()) {
-      showAlert('Invalid Drop Location', 'Please select a valid drop location from the suggestions list.');
-      return;
-    }
-    // Bug #3 fix: validate consent before showing overlay
+    // Consent is still required
     if (!consentAccepted || !riskAccepted) {
-      showAlert('Consent Required', 'Please accept both the patient consent terms and emergency risk acknowledgement at the bottom of the form.');
+      showAlert('Consent Required', 'Please scroll to the bottom and accept both the patient consent terms and emergency risk acknowledgement.');
       return;
     }
     setShowConfirmOverlay(true);
@@ -485,6 +481,74 @@ export default function BookingConfirmationScreen({ route, navigation }) {
           <Text style={styles.fareDisclaimer}>* Final fare may vary based on actual distance</Text>
         </Card>
 
+        {/* Patient Consent & Risk Acknowledgement */}
+        <Card shadow="medium" style={styles.consentCard}>
+          <View style={styles.consentHeader}>
+            <MaterialCommunityIcons name="shield-check" size={22} color={Colors.primary} />
+            <Text style={styles.consentTitle}>Patient Consent & Risk Acknowledgement</Text>
+          </View>
+
+          <Text style={styles.consentText}>
+            I understand that ambulance transportation involves risks depending on patient condition,
+            traffic, delays, or medical emergencies.
+          </Text>
+          <Text style={styles.consentText}>
+            I confirm the patient details provided are correct and accept emergency transportation
+            terms and medical support conditions.
+          </Text>
+
+          <TextInput
+            placeholder="Guardian / Patient Name"
+            value={guardianName}
+            onChangeText={setGuardianName}
+            style={styles.input}
+            placeholderTextColor={Colors.textMuted}
+          />
+          <TextInput
+            placeholder="Relation (Father, Mother, Brother…)"
+            value={relation}
+            onChangeText={setRelation}
+            style={[styles.input, { marginTop: 8 }]}
+            placeholderTextColor={Colors.textMuted}
+          />
+
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setConsentAccepted(!consentAccepted)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name={consentAccepted ? 'checkbox-marked' : 'checkbox-blank-outline'}
+              size={26}
+              color={consentAccepted ? Colors.primary : Colors.textMuted}
+            />
+            <Text style={styles.checkboxText}>
+              I agree to the patient consent terms. <Text style={{ color: Colors.error || '#E53935' }}>*</Text>
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setRiskAccepted(!riskAccepted)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name={riskAccepted ? 'checkbox-marked' : 'checkbox-blank-outline'}
+              size={26}
+              color={riskAccepted ? Colors.primary : Colors.textMuted}
+            />
+            <Text style={styles.checkboxText}>
+              I understand emergency transportation risks. <Text style={{ color: Colors.error || '#E53935' }}>*</Text>
+            </Text>
+          </TouchableOpacity>
+
+          {(!consentAccepted || !riskAccepted) && (
+            <Text style={styles.consentWarning}>
+              ⚠️ Both checkboxes must be ticked to confirm booking.
+            </Text>
+          )}
+        </Card>
+
         <View style={{ height: 120 }} />
       </ScrollView>
 
@@ -705,29 +769,44 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginTop: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  consentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
   consentTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    marginBottom: 12,
     color: Colors.text,
+    flex: 1,
   },
   consentText: {
     fontSize: 13,
     color: Colors.textSecondary,
-    marginBottom: 10,
+    marginBottom: 8,
     lineHeight: 20,
   },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 14,
+    gap: 10,
   },
   checkboxText: {
-    marginLeft: 10,
     flex: 1,
     fontSize: 14,
     color: Colors.text,
+    lineHeight: 20,
+  },
+  consentWarning: {
+    fontSize: 12,
+    color: Colors.error || '#E53935',
+    marginTop: 12,
+    fontWeight: '600',
   },
 });
 
