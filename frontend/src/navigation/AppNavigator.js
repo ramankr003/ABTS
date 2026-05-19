@@ -21,6 +21,7 @@ import MyBookingsScreen         from '../screens/Booking/MyBookingsScreen';
 import DriverDashboardScreen    from '../screens/Driver/DriverDashboardScreen';
 import DriverMapScreen          from '../screens/Driver/DriverMapScreen';
 import AdminDashboardScreen     from '../screens/Admin/AdminDashboardScreen';
+import HelpSupportScreen        from '../screens/Help/HelpSupportScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -85,6 +86,7 @@ function AppStack() {
       <Stack.Screen name="AmbulanceDetails"    component={AmbulanceDetailsScreen} options={{ title: 'Ambulance Details' }} />
       <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} options={{ title: 'Booking', headerBackVisible: false }} />
       <Stack.Screen name="LiveTracking"        component={LiveTrackingScreen}     options={{ title: 'Live Tracking', headerBackVisible: false }} />
+      <Stack.Screen name="HelpSupport"         component={HelpSupportScreen}      options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

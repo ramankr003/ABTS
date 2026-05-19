@@ -43,9 +43,9 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const MENU_ITEMS = [
-    { icon: 'clipboard-list-outline', label: 'My Bookings',  onPress: () => navigation.navigate('Bookings') },
+    { icon: 'clipboard-list-outline', label: 'My Bookings',  onPress: () => navigation?.navigate?.('Bookings') },
     { icon: 'bell-outline',           label: 'Notifications', onPress: () => {} },
-    { icon: 'help-circle-outline',    label: 'Help & Support', onPress: () => {} },
+    { icon: 'help-circle-outline',    label: 'Help & Support', onPress: () => navigation?.navigate?.('HelpSupport') },
     { icon: 'information-outline',    label: 'About ABTS',    onPress: () => {} },
   ];
 
