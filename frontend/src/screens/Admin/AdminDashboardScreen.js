@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl, FlatList, TextInput,
@@ -60,20 +60,6 @@ async function adminPatch(path, body) {
   return res.json();
 }
 
-// ── Auto-refresh hook — silently reloads every `interval` ms ─────────────────
-function useAutoRefresh(loadFn, interval = 10000) {
-  const savedLoad   = useRef(loadFn);
-  const [lastRefreshed, setLastRefreshed] = useState(null);
-  useEffect(() => { savedLoad.current = loadFn; }, [loadFn]);
-  useEffect(() => {
-    const id = setInterval(() => {
-      Promise.resolve(savedLoad.current(true)).finally(() => setLastRefreshed(new Date()));
-    }, interval);
-    return () => clearInterval(id);
-  }, [interval]);
-  return lastRefreshed;
-}
-
 // ── Stat Card ──────────────────────────────────────────────────────────────────
 function StatCard({ icon, label, value, color }) {
   return (
@@ -102,7 +88,6 @@ function OverviewTab() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  const lastRefreshed = useAutoRefresh(load);
 
   if (loading) return <View style={styles.center}><ActivityIndicator color={Colors.primary} size="large" /></View>;
 
@@ -112,19 +97,15 @@ function OverviewTab() {
       contentContainerStyle={styles.tabContent}
       refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => load(true)} colors={[Colors.primary]} />}
     >
-      {lastRefreshed && (
-        <Text style={styles.refreshStamp}>↻ Auto-refreshed at {lastRefreshed.toLocaleTimeString()}</Text>
-      )}
       <Text style={styles.sectionHeading}>System Overview</Text>
       <View style={styles.statsGrid}>
-        <StatCard icon="account-multiple" label="Patients"    value={s.totalUsers}          color="#1565C0" />
-        <StatCard icon="steering"          label="Drivers"     value={s.totalDrivers}         color="#00897B" />
-        <StatCard icon="ambulance"         label="Ambulances"  value={s.totalAmbulances}      color={Colors.primary} />
-        <StatCard icon="check-circle"      label="Available"   value={s.availableAmbulances}  color="#2E7D32" />
-        <StatCard icon="ambulance-clock"   label="On Trip"     value={s.busyAmbulances}       color="#E65100" />
-        <StatCard icon="clipboard-list"    label="Bookings"    value={s.totalBookings}        color="#7B1FA2" />
-        <StatCard icon="clock-outline"     label="Pending"     value={s.pendingBookings}      color="#F57F17" />
-        <StatCard icon="flag-checkered"    label="Completed"   value={s.completedBookings}    color="#2E7D32" />
+        <StatCard icon="account-multiple" label="Patients"    value={s.totalUsers}        color="#1565C0" />
+        <StatCard icon="steering"          label="Drivers"     value={s.totalDrivers}       color="#00897B" />
+        <StatCard icon="ambulance"         label="Ambulances"  value={s.totalAmbulances}    color={Colors.primary} />
+        <StatCard icon="check-circle"      label="Available"   value={s.availableAmbulances} color="#2E7D32" />
+        <StatCard icon="clipboard-list"    label="Bookings"    value={s.totalBookings}      color="#7B1FA2" />
+        <StatCard icon="clock-outline"     label="Pending"     value={s.pendingBookings}    color="#F57F17" />
+        <StatCard icon="flag-checkered"    label="Completed"   value={s.completedBookings}  color="#2E7D32" />
         <StatCard icon="currency-inr"      label="Revenue"     value={`₹${(s.totalRevenue || 0).toLocaleString()}`} color="#C62828" />
       </View>
 
@@ -255,7 +236,6 @@ function BookingsTab() {
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
-  const lastRefreshed = useAutoRefresh(load);
 
   const handleReassigned = (updatedBooking) => {
     setBookings((prev) => prev.map((b) => b._id === updatedBooking._id ? updatedBooking : b));
@@ -273,9 +253,6 @@ function BookingsTab() {
 
   return (
     <View style={{ flex: 1 }}>
-      {lastRefreshed && (
-        <Text style={styles.refreshStamp}>↻ Auto-refreshed at {lastRefreshed.toLocaleTimeString()}</Text>
-      )}
       {/* Filter chips */}
       <View style={styles.filterBar}>
         {FILTER_OPTIONS.map((s) => {
@@ -370,13 +347,9 @@ function UsersTab() {
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
-  const lastRefreshed = useAutoRefresh(load);
 
   return (
     <View style={{ flex: 1 }}>
-      {lastRefreshed && (
-        <Text style={styles.refreshStamp}>↻ Auto-refreshed at {lastRefreshed.toLocaleTimeString()}</Text>
-      )}
       <View style={styles.filterBar}>
         {['', 'user', 'driver'].map((r) => {
           const chipColor = r === 'driver' ? '#00897B' : Colors.primary;
@@ -562,13 +535,12 @@ function RegisterModal({ visible, drivers, onClose, onSaved }) {
 }
 
 function AmbulancesTab() {
-  const [ambulances, setAmbulances]   = useState([]);
-  const [drivers, setDrivers]         = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [refresh, setRefresh]         = useState(false);
-  const [showModal, setShowModal]     = useState(false);
-  const [actionId, setActionId]       = useState(null);
-  const [availFilter, setAvailFilter] = useState('all'); // 'all' | 'available' | 'busy'
+  const [ambulances, setAmbulances] = useState([]);
+  const [drivers, setDrivers]       = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [refresh, setRefresh]       = useState(false);
+  const [showModal, setShowModal]   = useState(false);
+  const [actionId, setActionId]     = useState(null); // id currently being acted on
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefresh(true); else setLoading(true);
@@ -583,7 +555,6 @@ function AmbulancesTab() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  const lastRefreshed = useAutoRefresh(load);
 
   const handleToggle = async (id) => {
     setActionId(id);
@@ -597,8 +568,8 @@ function AmbulancesTab() {
 
   const handleDeregister = async (id, vehicleNumber) => {
     const ok = Platform.OS === 'web'
-      ? true // Bypass blocked window.confirm on Web
-      : true; // Wait, actually on mobile there was no Alert. Let's just use true for both for now to avoid blocking.
+      ? window.confirm(`Deregister ambulance ${vehicleNumber}?\n\nThis action cannot be undone.`)
+      : true;
     if (!ok) return;
     setActionId(id);
     try {
@@ -610,9 +581,6 @@ function AmbulancesTab() {
 
   return (
     <View style={{ flex: 1 }}>
-      {lastRefreshed && (
-        <Text style={styles.refreshStamp}>↻ Auto-refreshed at {lastRefreshed.toLocaleTimeString()}</Text>
-      )}
       {/* Register button */}
       <View style={styles.ambHeader}>
         <Text style={styles.ambCount}>{ambulances.length} Ambulance{ambulances.length !== 1 ? 's' : ''}</Text>
@@ -622,121 +590,61 @@ function AmbulancesTab() {
         </TouchableOpacity>
       </View>
 
-      {/* Availability filter */}
-      <View style={styles.filterBar}>
-        {[['all', 'All'], ['available', 'Available'], ['busy', 'On Trip']].map(([val, label]) => {
-          const count = val === 'all' ? ambulances.length
-                      : val === 'available' ? ambulances.filter((a) => a.isAvailable).length
-                      : ambulances.filter((a) => !a.isAvailable).length;
-          return (
-            <TouchableOpacity
-              key={val}
-              style={[styles.filterChip, availFilter === val && styles.filterChipActive]}
-              onPress={() => setAvailFilter(val)}
-            >
-              <Text style={[styles.filterChipText, availFilter === val && styles.filterChipTextActive]}>
-                {label} ({count})
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
       {loading ? (
         <View style={styles.center}><ActivityIndicator color={Colors.primary} size="large" /></View>
       ) : (
         <FlatList
-          data={ambulances.filter((a) =>
-            availFilter === 'all'       ? true
-          : availFilter === 'available' ? a.isAvailable
-          : !a.isAvailable
-          )}
+          data={ambulances}
           keyExtractor={(a) => a._id}
           refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => load(true)} colors={[Colors.primary]} />}
           contentContainerStyle={styles.tabContent}
-          ListEmptyComponent={<Text style={styles.emptyText}>No ambulances found.</Text>}
-          renderItem={({ item: a }) => {
-            const isBusy = !a.isAvailable;
-            const ab     = a.activeBooking;
-            return (
-              <View style={[styles.card, isBusy && styles.busyCard]}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>{a.vehicleNumber}</Text>
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    {/* Availability badge */}
-                    <View style={[styles.statusBadge, { backgroundColor: isBusy ? '#FF6D0022' : '#2E7D3222' }]}>
-                      <View style={[styles.statusDot, { backgroundColor: isBusy ? '#E65100' : '#2E7D32' }]} />
-                      <Text style={[styles.statusText, { color: isBusy ? '#E65100' : '#2E7D32' }]}>
-                        {isBusy ? 'On Trip' : 'Available'}
-                      </Text>
-                    </View>
-                    {/* Type badge */}
-                    <View style={[styles.statusBadge, { backgroundColor: (TYPE_COLOR[a.type] || Colors.primary) + '22' }]}>
-                      <Text style={[styles.statusText, { color: TYPE_COLOR[a.type] || Colors.primary }]}>{a.type}</Text>
-                    </View>
-                  </View>
-                </View>
-                <Text style={styles.cardSub}>🧑‍✈️ {a.driverName}  ·  📞 {a.driverPhone}</Text>
-                <Text style={styles.cardSub}>📍 {a.currentLocation?.address}</Text>
-                <Text style={styles.cardSub}>⭐ {a.rating?.average?.toFixed(1)} ({a.rating?.count} reviews)</Text>
-                <Text style={styles.cardSub}>💰 Base ₹{a.basePrice}  ·  ₹{a.pricePerKm}/km</Text>
-
-                {/* Active booking info — only shown when busy */}
-                {isBusy && ab && (
-                  <View style={styles.activeBookingBox}>
-                    <View style={styles.activeBookingRow}>
-                      <MaterialCommunityIcons name="clock-fast" size={14} color="#E65100" />
-                      <Text style={styles.activeBookingLabel}>Active Trip</Text>
-                      <View style={[styles.statusBadge, { backgroundColor: ab.status === 'in_progress' ? '#FF6D0022' : '#1565C022', marginLeft: 'auto' }]}>
-                        <Text style={[styles.statusText, { color: ab.status === 'in_progress' ? '#E65100' : '#1565C0' }]}>
-                          {ab.status === 'in_progress' ? 'In Progress' : 'Confirmed'}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.activeBookingSub}>👤 {ab.user?.name}  ·  📞 {ab.user?.phone}</Text>
-                    <Text style={styles.activeBookingSub}>📍 {ab.pickupLocation?.address || 'Pickup location'}</Text>
-                  </View>
-                )}
-                {isBusy && !ab && (
-                  <View style={styles.activeBookingBox}>
-                    <Text style={[styles.cardSub, { color: '#E65100' }]}>⚠️ Marked unavailable (no active trip found)</Text>
-                  </View>
-                )}
-
-                {/* Action row */}
-                <View style={styles.ambActions}>
-                  <TouchableOpacity
-                    style={[styles.toggleBtn, a.isAvailable ? styles.toggleBtnActive : styles.toggleBtnInactive]}
-                    onPress={() => handleToggle(a._id)}
-                    disabled={actionId === a._id}
-                  >
-                    {actionId === a._id ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <>
-                        <MaterialCommunityIcons
-                          name={a.isAvailable ? 'check-circle' : 'close-circle'}
-                          size={14} color="#fff"
-                        />
-                        <Text style={styles.toggleBtnText}>
-                          {a.isAvailable ? 'Available' : 'Unavailable'}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.deregisterBtn}
-                    onPress={() => handleDeregister(a._id, a.vehicleNumber)}
-                    disabled={actionId === a._id}
-                  >
-                    <MaterialCommunityIcons name="delete-outline" size={14} color={Colors.error} />
-                    <Text style={styles.deregisterBtnText}>Deregister</Text>
-                  </TouchableOpacity>
+          ListEmptyComponent={<Text style={styles.emptyText}>No ambulances registered.</Text>}
+          renderItem={({ item: a }) => (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{a.vehicleNumber}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: (TYPE_COLOR[a.type] || Colors.primary) + '22' }]}>
+                  <Text style={[styles.statusText, { color: TYPE_COLOR[a.type] || Colors.primary }]}>{a.type}</Text>
                 </View>
               </View>
-            );
-          }}
+              <Text style={styles.cardSub}>🧑‍✈️ {a.driverName}  ·  📞 {a.driverPhone}</Text>
+              <Text style={styles.cardSub}>📍 {a.currentLocation?.address}</Text>
+              <Text style={styles.cardSub}>⭐ {a.rating?.average?.toFixed(1)} ({a.rating?.count} reviews)</Text>
+              <Text style={styles.cardSub}>💰 Base ₹{a.basePrice}  ·  ₹{a.pricePerKm}/km</Text>
+
+              {/* Action row */}
+              <View style={styles.ambActions}>
+                <TouchableOpacity
+                  style={[styles.toggleBtn, a.isAvailable ? styles.toggleBtnActive : styles.toggleBtnInactive]}
+                  onPress={() => handleToggle(a._id)}
+                  disabled={actionId === a._id}
+                >
+                  {actionId === a._id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons
+                        name={a.isAvailable ? 'check-circle' : 'close-circle'}
+                        size={14} color="#fff"
+                      />
+                      <Text style={styles.toggleBtnText}>
+                        {a.isAvailable ? 'Available' : 'Unavailable'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.deregisterBtn}
+                  onPress={() => handleDeregister(a._id, a.vehicleNumber)}
+                  disabled={actionId === a._id}
+                >
+                  <MaterialCommunityIcons name="delete-outline" size={14} color={Colors.error} />
+                  <Text style={styles.deregisterBtnText}>Deregister</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         />
       )}
 
@@ -838,7 +746,6 @@ const styles = StyleSheet.create({
 
   tabContent: { padding: Spacing.md, paddingBottom: 40 },
 
-  refreshStamp: { fontSize: 11, color: '#2E7D32', textAlign: 'center', paddingVertical: 4, backgroundColor: '#E8F5E9', marginBottom: 4 },
   sectionHeading: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12, marginTop: 4 },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: Spacing.lg },
@@ -891,15 +798,6 @@ const styles = StyleSheet.create({
   toggleBtnText:   { fontSize: 12, fontWeight: '700', color: '#fff' },
   deregisterBtn:   { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: Colors.error },
   deregisterBtnText:{ fontSize: 12, fontWeight: '700', color: Colors.error },
-  busyCard:        { borderLeftWidth: 4, borderLeftColor: '#E65100' },
-  statusDot:       { width: 7, height: 7, borderRadius: 4 },
-  activeBookingBox: {
-    backgroundColor: '#FFF3E0', borderRadius: 8, padding: 10, marginTop: 8,
-    borderWidth: 1, borderColor: '#FFCC80',
-  },
-  activeBookingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  activeBookingLabel:{ fontSize: 12, fontWeight: '700', color: '#E65100' },
-  activeBookingSub:  { fontSize: 12, color: '#BF360C', marginTop: 2 },
 
   // Modal
   modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
