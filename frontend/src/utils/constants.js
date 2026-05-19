@@ -1,5 +1,5 @@
-export const API_BASE_URL = 'https://abts-api.onrender.com/api';
-export const SOCKET_URL = 'https://abts-api.onrender.com';
+export const API_BASE_URL = 'http://localhost:5001/api';
+export const SOCKET_URL = 'http://localhost:5001';
 
 export const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
 
@@ -21,6 +21,7 @@ export const FACILITIES = [
   { key: 'doctor', label: 'Doctor', icon: 'doctor' },
   { key: 'defibrillator', label: 'Defibrillator', icon: 'lightning-bolt' },
   { key: 'ventilator', label: 'Ventilator', icon: 'air-filter' },
+  { key: 'cctvCamera', label: 'CCTV Camera', icon: 'cctv' },
 ];
 
 export const AMBULANCE_TYPES = [

@@ -13,7 +13,7 @@ import MapComponent from '../../components/MapComponent';
 import AmbulanceCard from '../../components/AmbulanceCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { Colors, Spacing, Shadow, BorderRadius } from '../../theme';
-import { DEFAULT_REGION, EMERGENCY_TYPES } from '../../utils/constants';
+import { DEFAULT_REGION, EMERGENCY_TYPES, FACILITIES } from '../../utils/constants';
 
 export default function HomeScreen({ navigation }) {
   const dispatch = useDispatch();
@@ -31,6 +31,13 @@ export default function HomeScreen({ navigation }) {
   const debounceRef = useRef(null);
   const [mapRegion, setMapRegion]     = useState(DEFAULT_REGION);
   const [showMap, setShowMap]         = useState(true);
+  const [selectedFacilities, setSelectedFacilities] = useState([]);
+
+  const toggleFacility = (id) => {
+    setSelectedFacilities((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
+    );
+  };
 
   // The effective location: manual selection takes priority over GPS
   const effectiveLocation = manualLocation || location;
@@ -40,7 +47,12 @@ export default function HomeScreen({ navigation }) {
     if (!query || query.length < 3) { setSuggestions([]); return; }
     setSugLoading(true);
     try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=in`;
+      // Bug #8 fix: bias results toward the user's current location
+      const loc = effectiveLocation || { latitude: 12.9716, longitude: 77.5946 };
+      const lat = loc.coords ? loc.coords.latitude  : loc.latitude;
+      const lng = loc.coords ? loc.coords.longitude : loc.longitude;
+      const viewbox = `${lng - 0.5},${lat + 0.5},${lng + 0.5},${lat - 0.5}`;
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=6&countrycodes=in&viewbox=${viewbox}&bounded=0`;
       const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } });
       const data = await res.json();
       setSuggestions(data.map((r) => ({
@@ -75,7 +87,10 @@ export default function HomeScreen({ navigation }) {
     setAddress(s.shortLabel);
     setMapRegion({ latitude: s.lat, longitude: s.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 });
     // Fetch ambulances for the manually selected location
-    dispatch(fetchAmbulances({ lat: s.lat, lng: s.lng, maxDistance: 50000, available: 'true', limit: 20 }));
+    dispatch(fetchAmbulances({
+      lat: s.lat, lng: s.lng, maxDistance: 50000, available: 'true', limit: 20,
+      facilities: selectedFacilities.length > 0 ? selectedFacilities.join(',') : undefined,
+    }));
   };
 
   const handleUseCurrentLocation = () => {
@@ -101,14 +116,19 @@ export default function HomeScreen({ navigation }) {
 
   // Fetch ambulances on mount immediately with fallback Bangalore coords
   useEffect(() => {
+    const loc = manualLocation || location || { coords: { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude } };
+    const lat = loc.coords ? loc.coords.latitude : loc.latitude;
+    const lng = loc.coords ? loc.coords.longitude : loc.longitude;
+
     dispatch(fetchAmbulances({
-      lat: DEFAULT_REGION.latitude,
-      lng: DEFAULT_REGION.longitude,
+      lat,
+      lng,
       maxDistance: 50000,
       available: 'true',
       limit: 20,
+      facilities: selectedFacilities.length > 0 ? selectedFacilities.join(',') : undefined,
     }));
-  }, [dispatch]);
+  }, [dispatch, selectedFacilities]);
 
   // Re-fetch with actual GPS when available (only if user hasn't manually selected a location)
   useEffect(() => {
@@ -125,8 +145,9 @@ export default function HomeScreen({ navigation }) {
       maxDistance: 50000,
       available: 'true',
       limit: 20,
+      facilities: selectedFacilities.length > 0 ? selectedFacilities.join(',') : undefined,
     }));
-  }, [location, dispatch, manualLocation]);
+  }, [location, dispatch, manualLocation, selectedFacilities]);
 
   // Sync GPS address to search text (only if user hasn't manually selected)
   useEffect(() => {
@@ -222,6 +243,62 @@ export default function HomeScreen({ navigation }) {
           ) : null}
         </View>
 
+
+        {/* CCTV Safety Card */}
+        <View style={styles.cctvCardContainer}>
+          <View style={styles.cctvCard}>
+            <MaterialCommunityIcons name="cctv" size={28} color={Colors.white} />
+            <View style={styles.cctvCardContent}>
+              <Text style={styles.cctvCardTitle}>🛡 CCTV Protected Ambulances</Text>
+              <Text style={styles.cctvCardSubtitle}>24/7 Safety Monitoring Enabled</Text>
+            </View>
+            <MaterialCommunityIcons name="shield-check" size={24} color={Colors.white} />
+          </View>
+        </View>
+
+        {/* Facilities & Equipment Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Facilities & Equipment</Text>
+          <View style={styles.facilitiesContainer}>
+            {FACILITIES.map((facility) => {
+              const isSelected = selectedFacilities.includes(facility.key);
+              return (
+                <TouchableOpacity
+                  key={facility.key}
+                  style={[
+                    styles.facilityChip,
+                    isSelected && styles.facilityChipSelected,
+                  ]}
+                  onPress={() => toggleFacility(facility.key)}
+                  activeOpacity={isSelected ? 1 : 0.7}
+                >
+                  <MaterialCommunityIcons
+                    name={facility.icon}
+                    size={16}
+                    color={isSelected ? Colors.white : Colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.facilityChipText,
+                      isSelected && styles.facilityChipTextSelected,
+                    ]}
+                  >
+                    {facility.label}
+                  </Text>
+                  {isSelected && (
+                    <TouchableOpacity
+                      style={{ marginLeft: 4 }}
+                      onPress={() => toggleFacility(facility.key)}
+                    >
+                      <MaterialCommunityIcons name="close-circle" size={14} color={Colors.white} />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Emergency type quick selector */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Emergency Type</Text>
@@ -291,6 +368,7 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity onPress={() => dispatch(fetchAmbulances({
                 lat: DEFAULT_REGION.latitude, lng: DEFAULT_REGION.longitude,
                 maxDistance: 100000, limit: 20,
+                facilities: selectedFacilities.length > 0 ? selectedFacilities.join(',') : undefined,
               }))}>
                 <Text style={styles.retryText}>Show all ambulances</Text>
               </TouchableOpacity>
@@ -414,4 +492,65 @@ const styles = StyleSheet.create({
   suggestionTexts:  { flex: 1 },
   suggestionShort:  { fontSize: 13, fontWeight: '600', color: Colors.text },
   suggestionFull:   { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
+
+  // CCTV Safety Card
+  cctvCardContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  cctvCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1976D2',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    gap: Spacing.md,
+    ...Shadow.medium,
+  },
+  cctvCardContent: {
+    flex: 1,
+  },
+  cctvCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  cctvCardSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+  },
+
+  // Facilities
+  facilitiesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  facilityChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.light,
+  },
+  facilityChipSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  facilityChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  facilityChipTextSelected: {
+    color: Colors.white,
+  },
 });

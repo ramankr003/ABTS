@@ -37,6 +37,7 @@ const ambulanceSchema = new mongoose.Schema(
       doctor:       { type: Boolean, default: false },
       defibrillator:{ type: Boolean, default: false },
       ventilator:   { type: Boolean, default: false },
+      cctvCamera:   { type: Boolean, default: true },
     },
     pricePerKm: {
       type: Number,
