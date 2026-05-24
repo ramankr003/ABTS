@@ -39,6 +39,13 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
+  // Build individual facility query params for the backend (e.g. { oxygen: 'true', doctor: 'true' })
+  const buildFacilityParams = (facilities) => {
+    const params = {};
+    facilities.forEach((f) => { params[f] = 'true'; });
+    return params;
+  };
+
   // The effective location: manual selection takes priority over GPS
   const effectiveLocation = manualLocation || location;
 
@@ -73,7 +80,7 @@ export default function HomeScreen({ navigation }) {
     setSearchText(text);
     setShowSuggestions(true);
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(text), 400);
+    debounceRef.current = setTimeout(() => fetchSuggestions(text), 1200);
   };
 
   const handleSelectSuggestion = (s) => {
@@ -89,7 +96,7 @@ export default function HomeScreen({ navigation }) {
     // Fetch ambulances for the manually selected location
     dispatch(fetchAmbulances({
       lat: s.lat, lng: s.lng, maxDistance: 50000, available: 'true', limit: 20,
-      facilities: selectedFacilities.length > 0 ? selectedFacilities.join(',') : undefined,
+      ...buildFacilityParams(selectedFacilities),
     }));
   };
 
@@ -126,7 +133,7 @@ export default function HomeScreen({ navigation }) {
       maxDistance: 50000,
       available: 'true',
       limit: 20,
-      facilities: selectedFacilities.length > 0 ? selectedFacilities.join(',') : undefined,
+      ...buildFacilityParams(selectedFacilities),
     }));
   }, [dispatch, selectedFacilities]);
 
@@ -145,7 +152,7 @@ export default function HomeScreen({ navigation }) {
       maxDistance: 50000,
       available: 'true',
       limit: 20,
-      facilities: selectedFacilities.length > 0 ? selectedFacilities.join(',') : undefined,
+      ...buildFacilityParams(selectedFacilities),
     }));
   }, [location, dispatch, manualLocation, selectedFacilities]);
 
@@ -155,15 +162,19 @@ export default function HomeScreen({ navigation }) {
   }, [address, manualLocation]);
 
   const handleSearch = useCallback(() => {
-    navigation.navigate('AmbulanceList', { location: effectiveLocation, searchText });
-  }, [navigation, effectiveLocation, searchText]);
+    navigation.navigate('AmbulanceList', { location: effectiveLocation, searchText, selectedFacilities });
+  }, [navigation, effectiveLocation, searchText, selectedFacilities]);
 
   const handleQuickBook = () => {
-    navigation.navigate('AmbulanceList', { location: effectiveLocation || { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude }, searchText });
+    navigation.navigate('AmbulanceList', { 
+      location: effectiveLocation || { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude }, 
+      searchText,
+      selectedFacilities 
+    });
   };
 
   const handleAmbulancePress = (amb) => {
-    navigation.navigate('AmbulanceDetails', { ambulanceId: amb._id, location: effectiveLocation, searchText });
+    navigation.navigate('AmbulanceDetails', { ambulanceId: amb._id, location: effectiveLocation, searchText, selectedFacilities });
   };
 
   return (
@@ -307,7 +318,7 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity
                 key={t.value}
                 style={styles.typeChip}
-                onPress={() => navigation.navigate('AmbulanceList', { location: effectiveLocation, emergencyType: t.value, searchText })}
+                onPress={() => navigation.navigate('AmbulanceList', { location: effectiveLocation, emergencyType: t.value, searchText, selectedFacilities })}
               >
                 <MaterialCommunityIcons name={t.icon} size={22} color={Colors.primary} />
                 <Text style={styles.typeLabel}>{t.label}</Text>
@@ -368,7 +379,7 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity onPress={() => dispatch(fetchAmbulances({
                 lat: DEFAULT_REGION.latitude, lng: DEFAULT_REGION.longitude,
                 maxDistance: 100000, limit: 20,
-                facilities: selectedFacilities.length > 0 ? selectedFacilities.join(',') : undefined,
+                ...buildFacilityParams(selectedFacilities),
               }))}>
                 <Text style={styles.retryText}>Show all ambulances</Text>
               </TouchableOpacity>
@@ -385,7 +396,7 @@ export default function HomeScreen({ navigation }) {
               {ambulances.length > 3 && (
                 <TouchableOpacity
                   style={styles.viewAllBtn}
-                  onPress={() => navigation.navigate('AmbulanceList', { location })}
+                  onPress={() => navigation.navigate('AmbulanceList', { location, selectedFacilities })}
                 >
                   <Text style={styles.viewAllText}>View all {ambulances.length} ambulances →</Text>
                 </TouchableOpacity>
@@ -429,7 +440,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     height: 50,
   },
-  searchInput: { flex: 1, fontSize: 15, color: Colors.text, height: '100%', alignSelf: 'stretch' },
+  searchInput: {
+    flex: 1, fontSize: 15, color: Colors.text, height: '100%', alignSelf: 'stretch',
+    ...Platform.select({ web: { outlineStyle: 'none' } })
+  },
   section:     { paddingHorizontal: Spacing.lg, marginTop: Spacing.lg },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
   sectionTitle:  { fontSize: 16, fontWeight: '700', color: Colors.text },

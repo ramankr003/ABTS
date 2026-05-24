@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Spacing } from '../../theme';
 
@@ -73,41 +73,58 @@ export default function Input({
 }
 
 const styles = StyleSheet.create({
-  wrapper: { marginBottom: Spacing.md },
+  wrapper: { marginBottom: Spacing.md + 2 },
   label: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
-    marginBottom: Spacing.xs,
+    marginBottom: 6,
+    letterSpacing: 0.2,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.sm,
-    minHeight: 48,
+    backgroundColor: '#F3F4F6', // Modern soft gray
+    borderWidth: 1,
+    borderColor: 'transparent', // Transparent border so layout doesn't shift on focus
+    borderRadius: 14,
+    paddingHorizontal: Spacing.md,
+    minHeight: 52,
   },
-  focused:     { borderColor: Colors.primary },
-  errorBorder: { borderColor: Colors.error },
-  disabled:    { backgroundColor: '#F5F5F5' },
+  focused: {
+    backgroundColor: '#FFFFFF',
+    borderColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  errorBorder: { borderColor: Colors.error, backgroundColor: '#FFF8F8' },
+  disabled:    { backgroundColor: '#F0F0F0', opacity: 0.7 },
   input: {
     flex: 1,
     fontSize: 15,
     color: Colors.text,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
+    // Remove default browser focus outline on web
+    ...Platform.select({
+      web: { outlineStyle: 'none' },
+    }),
   },
   multiline: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  iconLeft:  { marginRight: Spacing.sm },
+  iconLeft:  { marginRight: Spacing.sm + 2 },
   iconRight: { marginLeft:  Spacing.sm },
   error: {
+    flexDirection: 'row',
+    alignItems: 'center',
     fontSize: 12,
+    fontWeight: '500',
     color: Colors.error,
-    marginTop: Spacing.xs,
+    marginTop: 4,
+    paddingLeft: 2,
   },
 });

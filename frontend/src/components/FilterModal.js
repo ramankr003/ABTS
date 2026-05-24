@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
+  Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -187,6 +187,7 @@ const styles = StyleSheet.create({
     flex: 1, borderWidth: 1.5, borderColor: Colors.border,
     borderRadius: BorderRadius.md, padding: Spacing.sm,
     fontSize: 15, color: Colors.text,
+    ...Platform.select({ web: { outlineStyle: 'none' } })
   },
   priceDash: { fontSize: 18, color: Colors.textMuted },
   actions: { flexDirection: 'row', gap: 12, paddingTop: Spacing.md },
