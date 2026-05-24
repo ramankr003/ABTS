@@ -103,7 +103,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
     setPickupCoords(null); // coords invalidated until user picks suggestion
     setShowPickupSug(true);
     clearTimeout(pickupDebounceRef.current);
-    pickupDebounceRef.current = setTimeout(() => fetchPickupSuggestions(text), 1200);
+    pickupDebounceRef.current = setTimeout(() => fetchPickupSuggestions(text), 400);
   };
 
   const handleSelectPickupSuggestion = (s) => {
@@ -125,7 +125,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
     setDropAddress(text);
     setShowDropSug(true);
     clearTimeout(dropDebounceRef.current);
-    dropDebounceRef.current = setTimeout(() => fetchDropSuggestions(text), 1200);
+    dropDebounceRef.current = setTimeout(() => fetchDropSuggestions(text), 400);
   };
 
   const handleSelectDropSuggestion = (s) => {
