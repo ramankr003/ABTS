@@ -29,6 +29,21 @@ const initializeSocket = (server) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       socket.userId = decoded.id;
+      
+      // Schedule automatic disconnection when the token expires
+      if (decoded.exp) {
+        const timeToExpireMs = (decoded.exp * 1000) - Date.now();
+        if (timeToExpireMs > 0) {
+          socket.tokenTimeout = setTimeout(() => {
+            console.log(`🔌 Disconnecting socket [${socket.id}] - Token expired`);
+            socket.emit('token_expired', { message: 'Your session has expired.' });
+            socket.disconnect(true);
+          }, timeToExpireMs);
+        } else {
+          return next(new Error('Authentication error: token already expired'));
+        }
+      }
+
       next();
     } catch {
       next(new Error('Authentication error: invalid token'));
@@ -109,6 +124,7 @@ const initializeSocket = (server) => {
 
     socket.on('disconnect', (reason) => {
       console.log(`🔌 Socket disconnected [${socket.id}] reason=${reason}`);
+      if (socket.tokenTimeout) clearTimeout(socket.tokenTimeout);
     });
   });
 

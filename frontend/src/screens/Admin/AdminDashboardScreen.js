@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
   modalTitle:    { fontSize: 18, fontWeight: '800', color: Colors.text },
   modalError:    { backgroundColor: '#ffebee', color: Colors.error, padding: 10, borderRadius: 8, marginBottom: 10, fontSize: 13 },
   inputLabel:    { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input:         { borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: Colors.text, backgroundColor: Colors.background },
+  input:         { borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: Colors.text, backgroundColor: Colors.background, ...Platform.select({ web: { outlineStyle: 'none' } }) },
   driverChip:    { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, marginRight: 8 },
   driverChipActive:    { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
   driverChipText:      { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },

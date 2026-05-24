@@ -412,6 +412,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     fontSize: 14,
     color: Colors.text,
+    ...Platform.select({ web: { outlineStyle: 'none' } }),
   },
   sendButton: {
     width: 40,

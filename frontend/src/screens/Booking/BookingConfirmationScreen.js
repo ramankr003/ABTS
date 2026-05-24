@@ -9,12 +9,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import { createBooking, clearCurrent } from '../../store/bookingSlice';
 import Button from '../../components/common/Button';
 import Card   from '../../components/common/Card';
+import Input  from '../../components/common/Input';
 import { Colors, Spacing, BorderRadius, Typography } from '../../theme';
 import { formatCurrency, formatDistance, formatETA, getAmbulanceType, haversineDistance } from '../../utils/helpers';
 import { EMERGENCY_TYPES, PAYMENT_METHODS, FACILITIES } from '../../utils/constants';
 
 export default function BookingConfirmationScreen({ route, navigation }) {
-  const { ambulance, location } = route.params;
+  const { ambulance, location, selectedFacilities } = route.params || {};
   const dispatch = useDispatch();
   const { isCreating, current: booking, error } = useSelector((s) => s.booking);
 
@@ -23,11 +24,38 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   const [patientDetails, setPatientDetails] = useState({ name: '', age: '', condition: '', bloodGroup: '' });
   const [emergencyContact, setEmergencyContact] = useState({ name: '', phone: '' });
   const [showConfirmOverlay, setShowConfirmOverlay] = useState(false);
-  const [requiredFacilities, setRequiredFacilities] = useState([]);
+  const [requiredFacilities, setRequiredFacilities] = useState(selectedFacilities || []);
   const [guardianName, setGuardianName] = useState('');
   const [relation, setRelation] = useState('');
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [riskAccepted, setRiskAccepted] = useState(false);
+
+  // Address fetching logic
+  const [displayAddress, setDisplayAddress] = useState(route.params.searchText || '');
+  
+  useEffect(() => {
+    if (!displayAddress && location) {
+      const fetchAddress = async () => {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.latitude}&lon=${location.longitude}`, {
+            headers: {
+              'User-Agent': 'ABTS-App/1.0',
+              'Accept-Language': 'en-US,en;q=0.9'
+            }
+          });
+          const data = await res.json();
+          if (data && data.display_name) {
+            setDisplayAddress(data.display_name);
+          } else {
+            setDisplayAddress('Current GPS Location');
+          }
+        } catch (e) {
+          setDisplayAddress('Current GPS Location');
+        }
+      };
+      fetchAddress();
+    }
+  }, [location, displayAddress]);
 
   // Pickup location (editable, pre-filled from home screen)
   const [pickupAddress,    setPickupAddress]    = useState(route.params.searchText || '');
@@ -75,7 +103,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
     setPickupCoords(null); // coords invalidated until user picks suggestion
     setShowPickupSug(true);
     clearTimeout(pickupDebounceRef.current);
-    pickupDebounceRef.current = setTimeout(() => fetchPickupSuggestions(text), 400);
+    pickupDebounceRef.current = setTimeout(() => fetchPickupSuggestions(text), 1200);
   };
 
   const handleSelectPickupSuggestion = (s) => {
@@ -97,7 +125,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
     setDropAddress(text);
     setShowDropSug(true);
     clearTimeout(dropDebounceRef.current);
-    dropDebounceRef.current = setTimeout(() => fetchDropSuggestions(text), 400);
+    dropDebounceRef.current = setTimeout(() => fetchDropSuggestions(text), 1200);
   };
 
   const handleSelectDropSuggestion = (s) => {
@@ -128,7 +156,7 @@ export default function BookingConfirmationScreen({ route, navigation }) {
   }, [booking]);
 
   const doBooking = async () => {
-    const resolvedPickup = pickupCoords || location;
+    const resolvedPickup = location;
 
     const result = await dispatch(
       createBooking({
@@ -136,18 +164,27 @@ export default function BookingConfirmationScreen({ route, navigation }) {
         pickupLocation: {
           type: 'Point',
           coordinates: resolvedPickup ? [resolvedPickup.longitude, resolvedPickup.latitude] : [0, 0],
-          address: pickupAddress || 'Current Location',
+          address: displayAddress.trim() || 
+                   (resolvedPickup ? `Current GPS Location (${resolvedPickup.latitude.toFixed(5)}, ${resolvedPickup.longitude.toFixed(5)})` : 'Current GPS Location'),
         },
         // Drop location is fully optional — only include it if coords were resolved from a suggestion
         dropLocation: (dropCoords && dropAddress)
           ? { type: 'Point', coordinates: [dropCoords.longitude, dropCoords.latitude], address: dropAddress }
           : undefined,
         emergencyType,
+        requiredFacilities,
+        patientConsent: {
+          accepted: consentAccepted,
+          acceptedAt: new Date().toISOString(),
+          guardianName,
+          relation,
+          emergencyRiskAccepted: riskAccepted,
+        },
         patientDetails: {
           name: patientDetails.name,
           age:  patientDetails.age ? parseInt(patientDetails.age) : undefined,
           condition: patientDetails.condition,
-          bloodGroup: patientDetails.bloodGroup,
+          bloodGroup: patientDetails.bloodGroup || undefined,
           emergencyContact: {
             name:  emergencyContact.name,
             phone: emergencyContact.phone,
@@ -214,146 +251,56 @@ export default function BookingConfirmationScreen({ route, navigation }) {
           </View>
         </Card>
 
-        {/* Pickup Location */}
-        <Card shadow="medium" style={[styles.section, { zIndex: 20, overflow: 'visible' }]}>
-          <Text style={styles.sectionTitle}>Pickup Location</Text>
-          <View style={styles.dropWrapper}>
-            <View style={styles.dropInputRow}>
-              <MaterialCommunityIcons name="map-marker" size={18} color={Colors.primary} style={styles.dropIcon} />
-              <TextInput
-                style={styles.dropInput}
-                value={pickupAddress}
-                onChangeText={handlePickupTextChange}
-                placeholder="Enter your pickup address"
-                placeholderTextColor={Colors.textMuted}
-                onFocus={() => pickupAddress.length >= 3 && setShowPickupSug(true)}
-                onBlur={() => setTimeout(() => setShowPickupSug(false), 150)}
-                returnKeyType="search"
-              />
-              {pickupSugLoading && <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 6 }} />}
-              {pickupCoords && !pickupSugLoading && (
-                <MaterialCommunityIcons name="check-circle" size={18} color={Colors.success || '#4caf50'} />
-              )}
-            </View>
-
-            {showPickupSug && pickupSuggestions.length > 0 && (
-              <View style={styles.dropSugBox}>
-                {pickupSuggestions.map((s, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[styles.dropSugItem, idx < pickupSuggestions.length - 1 && styles.dropSugBorder]}
-                    onPress={() => handleSelectPickupSuggestion(s)}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons name="map-marker-outline" size={15} color={Colors.primary} style={{ marginRight: 8 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.dropSugShort} numberOfLines={1}>{s.shortLabel}</Text>
-                      <Text style={styles.dropSugFull}  numberOfLines={1}>{s.label}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        </Card>
-
-        {/* Emergency Type */}
-        <Card shadow="light" style={styles.section}>
-          <Text style={styles.sectionTitle}>Emergency Type</Text>
-          <View style={styles.chipGrid}>
-            {EMERGENCY_TYPES.map((t) => (
-              <TouchableOpacity
-                key={t.value}
-                style={[styles.eChip, emergencyType === t.value && styles.eChipActive]}
-                onPress={() => setEmergencyType(t.value)}
-              >
-                <MaterialCommunityIcons
-                  name={t.icon}
-                  size={16}
-                  color={emergencyType === t.value ? Colors.white : Colors.textSecondary}
-                />
-                <Text style={[styles.eChipText, emergencyType === t.value && styles.eChipTextActive]}>
-                  {t.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Card>
-
         {/* Patient Details */}
         <Card shadow="light" style={styles.section}>
           <Text style={styles.sectionTitle}>Patient Details (Optional)</Text>
 
           <View style={styles.inputRow}>
             <View style={styles.inputHalf}>
-              <Text style={styles.inputLabel}>Patient Name</Text>
-              <TextInput
-                style={styles.input}
+              <Input
+                label="Patient Name"
                 value={patientDetails.name}
                 onChangeText={(v) => setPatientDetails((p) => ({ ...p, name: v }))}
                 placeholder="Full name"
-                placeholderTextColor={Colors.textMuted}
               />
             </View>
             <View style={styles.inputHalf}>
-              <Text style={styles.inputLabel}>Age</Text>
-              <TextInput
-                style={styles.input}
+              <Input
+                label="Age"
                 value={patientDetails.age}
                 onChangeText={(v) => setPatientDetails((p) => ({ ...p, age: v }))}
                 placeholder="Age"
-                placeholderTextColor={Colors.textMuted}
                 keyboardType="numeric"
               />
             </View>
           </View>
 
-          <Text style={styles.inputLabel}>Condition / Notes</Text>
-          <TextInput
-            style={[styles.input, styles.inputMultiline]}
+          <Input
+            label="Condition / Notes"
             value={patientDetails.condition}
             onChangeText={(v) => setPatientDetails((p) => ({ ...p, condition: v }))}
             placeholder="Briefly describe the condition…"
-            placeholderTextColor={Colors.textMuted}
             multiline
             numberOfLines={3}
           />
-
-          {/* Blood Group - Bug #9 fix: no pre-selected 'unknown' */}
-          <Text style={[styles.inputLabel, { marginTop: Spacing.md, marginBottom: 8 }]}>Blood Group (Optional)</Text>
-          <View style={styles.bloodGroupGrid}>
-            {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'].map((bg) => (
-              <TouchableOpacity
-                key={bg}
-                style={[styles.bgChip, patientDetails.bloodGroup === bg.toLowerCase().replace('+','+').replace('-','-') && styles.bgChipActive]}
-                onPress={() => setPatientDetails((p) => ({ ...p, bloodGroup: bg === 'Unknown' ? 'unknown' : bg }))}
-              >
-                <Text style={[styles.bgChipText, patientDetails.bloodGroup === (bg === 'Unknown' ? 'unknown' : bg) && styles.bgChipTextActive]}>{bg}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
 
           {/* Emergency Contact */}
           <Text style={[styles.inputLabel, { marginTop: Spacing.md, marginBottom: 8 }]}>Emergency Contact</Text>
           <View style={styles.inputRow}>
             <View style={styles.inputHalf}>
-              <Text style={styles.inputLabel}>Contact Name</Text>
-              <TextInput
-                style={styles.input}
+              <Input
+                label="Contact Name"
                 value={emergencyContact.name}
                 onChangeText={(v) => setEmergencyContact((c) => ({ ...c, name: v }))}
                 placeholder="Full name"
-                placeholderTextColor={Colors.textMuted}
               />
             </View>
             <View style={styles.inputHalf}>
-              <Text style={styles.inputLabel}>Contact Phone</Text>
-              <TextInput
-                style={styles.input}
+              <Input
+                label="Contact Phone"
                 value={emergencyContact.phone}
                 onChangeText={(v) => setEmergencyContact((c) => ({ ...c, phone: v }))}
                 placeholder="10-digit number"
-                placeholderTextColor={Colors.textMuted}
                 keyboardType="phone-pad"
                 maxLength={15}
               />
@@ -365,25 +312,26 @@ export default function BookingConfirmationScreen({ route, navigation }) {
         <Card shadow="light" style={[styles.section, { zIndex: 10, overflow: 'visible' }]}>
           <Text style={styles.sectionTitle}>Drop Location (Optional)</Text>
           <View style={styles.dropWrapper}>
-            <View style={styles.dropInputRow}>
-              <MaterialCommunityIcons name="hospital-marker" size={18} color={Colors.secondary} style={styles.dropIcon} />
-              <TextInput
-                style={styles.dropInput}
+              <Input
+                style={{ marginBottom: 0 }}
+                leftIcon={<MaterialCommunityIcons name="hospital-marker" size={18} color={Colors.secondary} />}
                 value={dropAddress}
                 onChangeText={handleDropTextChange}
                 placeholder="Hospital name or address"
-                placeholderTextColor={Colors.textMuted}
                 onFocus={() => dropAddress.length >= 3 && setShowDropSug(true)}
                 onBlur={() => setTimeout(() => setShowDropSug(false), 150)}
                 returnKeyType="search"
+                rightIcon={
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {dropSugLoading && <ActivityIndicator size="small" color={Colors.secondary} style={{ marginRight: 6 }} />}
+                    {dropAddress.length > 0 && !dropSugLoading && (
+                      <TouchableOpacity onPress={() => { setDropAddress(''); setDropCoords(null); setDropSuggestions([]); }}>
+                        <MaterialCommunityIcons name="close-circle" size={18} color={Colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                }
               />
-              {dropSugLoading && <ActivityIndicator size="small" color={Colors.secondary} style={{ marginLeft: 6 }} />}
-              {dropAddress.length > 0 && !dropSugLoading && (
-                <TouchableOpacity onPress={() => { setDropAddress(''); setDropCoords(null); setDropSuggestions([]); }}>
-                  <MaterialCommunityIcons name="close-circle" size={18} color={Colors.textMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
             {showDropSug && dropSuggestions.length > 0 && (
               <View style={styles.dropSugBox}>
                 {dropSuggestions.map((s, idx) => (
@@ -404,46 +352,6 @@ export default function BookingConfirmationScreen({ route, navigation }) {
             )}
           </View>
         </Card>
-
-        {/* Required Facilities — Bug #6 fix: only show what this ambulance has */}
-        {(() => {
-          const availFacs = FACILITIES.filter((f) => ambulance.facilities?.[f.key]);
-          if (availFacs.length === 0) return null;
-          return (
-            <Card shadow="light" style={styles.section}>
-              <Text style={styles.sectionTitle}>Required Facilities</Text>
-              <Text style={[styles.inputLabel, { marginBottom: 10 }]}>
-                Select any special facilities you need (based on this ambulance's equipment)
-              </Text>
-              <View style={styles.facilityChips}>
-                {availFacs.map((fac) => {
-                  const isSelected = requiredFacilities.includes(fac.key);
-                  return (
-                    <TouchableOpacity
-                      key={fac.key}
-                      style={[
-                        styles.facilityChip,
-                        { backgroundColor: isSelected ? Colors.primary : Colors.background },
-                      ]}
-                      onPress={() => setRequiredFacilities((prev) =>
-                        prev.includes(fac.key) ? prev.filter((k) => k !== fac.key) : [...prev, fac.key]
-                      )}
-                    >
-                      <MaterialCommunityIcons
-                        name={fac.icon}
-                        size={16}
-                        color={isSelected ? Colors.white : Colors.textMuted}
-                      />
-                      <Text style={[styles.facilityChipText, { color: isSelected ? Colors.white : Colors.textSecondary }]}>
-                        {fac.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </Card>
-          );
-        })()}
 
         {/* Payment Method */}
         <Card shadow="light" style={styles.section}>
@@ -497,19 +405,15 @@ export default function BookingConfirmationScreen({ route, navigation }) {
             terms and medical support conditions.
           </Text>
 
-          <TextInput
+          <Input
             placeholder="Guardian / Patient Name"
             value={guardianName}
             onChangeText={setGuardianName}
-            style={styles.input}
-            placeholderTextColor={Colors.textMuted}
           />
-          <TextInput
+          <Input
             placeholder="Relation (Father, Mother, Brother…)"
             value={relation}
             onChangeText={setRelation}
-            style={[styles.input, { marginTop: 8 }]}
-            placeholderTextColor={Colors.textMuted}
           />
 
           <TouchableOpacity
@@ -564,13 +468,13 @@ export default function BookingConfirmationScreen({ route, navigation }) {
             <View style={styles.overlayLocationBox}>
               <MaterialCommunityIcons name="map-marker" size={20} color={Colors.primary} />
               <Text style={styles.overlayLocationText}>
-                {pickupAddress.trim() || 'Current GPS Location'}
+                {displayAddress.trim() || 'Current GPS Location'}
               </Text>
             </View>
 
-            {pickupCoords && (
+            {location && (
               <Text style={styles.overlayCoords}>
-                {pickupCoords.latitude.toFixed(5)}, {pickupCoords.longitude.toFixed(5)}
+                {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
               </Text>
             )}
 
@@ -579,7 +483,10 @@ export default function BookingConfirmationScreen({ route, navigation }) {
             <View style={styles.overlayActions}>
               <TouchableOpacity
                 style={styles.overlayEditBtn}
-                onPress={() => setShowConfirmOverlay(false)}
+                onPress={() => {
+                  setShowConfirmOverlay(false);
+                  navigation.navigate('Home');
+                }}
               >
                 <MaterialCommunityIcons name="pencil" size={16} color={Colors.primary} />
                 <Text style={styles.overlayEditText}>Edit Location</Text>
@@ -645,6 +552,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: Colors.border,
     borderRadius: BorderRadius.md, padding: Spacing.sm,
     fontSize: 14, color: Colors.text, backgroundColor: Colors.surface,
+    ...Platform.select({ web: { outlineStyle: 'none' } })
   },
   inputMultiline: { minHeight: 72, textAlignVertical: 'top', marginBottom: 0 },
   payRow:    { flexDirection: 'row', gap: 10 },
@@ -739,7 +647,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface, minHeight: 44,
   },
   dropIcon:   { marginRight: 6 },
-  dropInput:  { flex: 1, fontSize: 14, color: Colors.text, paddingVertical: Spacing.sm },
+  dropInput:  {
+    flex: 1, fontSize: 14, color: Colors.text, paddingVertical: Spacing.sm,
+    ...Platform.select({ web: { outlineStyle: 'none' } })
+  },
   dropSugBox: {
     position: 'absolute', top: 48, left: 0, right: 0,
     backgroundColor: Colors.white,

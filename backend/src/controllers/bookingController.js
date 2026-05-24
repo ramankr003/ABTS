@@ -3,6 +3,9 @@ const Ambulance = require('../models/Ambulance');
 const User = require('../models/User');
 const { getIO } = require('../services/socketService');
 
+// Map to track and clear simulator timers to prevent memory leaks
+const simulationTimers = new Map();
+
 // POST /api/bookings
 exports.createBooking = async (req, res, next) => {
   try {
@@ -22,12 +25,13 @@ exports.createBooking = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'ambulanceId and pickupLocation are required.' });
     }
 
-    const ambulance = await Ambulance.findById(ambulanceId);
+    const ambulance = await Ambulance.findOneAndUpdate(
+      { _id: ambulanceId, isAvailable: true },
+      { isAvailable: false },
+      { new: true }
+    );
     if (!ambulance) {
-      return res.status(404).json({ success: false, message: 'Ambulance not found.' });
-    }
-    if (!ambulance.isAvailable) {
-      return res.status(409).json({ success: false, message: 'Ambulance is currently unavailable.' });
+      return res.status(409).json({ success: false, message: 'Ambulance is currently unavailable or already booked.' });
     }
 
     const fare = {
@@ -151,8 +155,20 @@ exports.updateBookingStatus = async (req, res, next) => {
       });
     }
 
+    // Clear any active simulator loops if trip ends
+    if (['completed', 'cancelled', 'rejected'].includes(status)) {
+      const timers = simulationTimers.get(booking._id.toString());
+      if (timers) {
+        timers.forEach(clearTimeout);
+        simulationTimers.delete(booking._id.toString());
+      }
+    }
+
     booking.status = status;
-    if (status === 'rejected')    booking.rejectionReason = rejectionReason || 'No reason provided';
+    if (status === 'rejected') {
+      booking.rejectionReason = rejectionReason || 'No reason provided';
+      await Ambulance.findByIdAndUpdate(booking.ambulance._id, { isAvailable: true });
+    }
     if (status === 'confirmed') {
       booking.confirmedAt = new Date();
       await Ambulance.findByIdAndUpdate(booking.ambulance._id, { isAvailable: false });
@@ -205,7 +221,7 @@ exports.updateBookingStatus = async (req, res, next) => {
           const stepLng = startLng + (pickupLng - startLng) * frac;
           const etaMin  = Math.round((STEPS - i) * 0.4);
 
-          setTimeout(() => {
+          const timerId = setTimeout(() => {
             io.to(`booking_${bookingIdStr}`).emit('ambulance_location', {
               ambulanceId,
               latitude:  stepLat,
@@ -219,6 +235,9 @@ exports.updateBookingStatus = async (req, res, next) => {
               eta:       etaMin,
             });
           }, i * 3000);
+          
+          if (!simulationTimers.has(bookingIdStr)) simulationTimers.set(bookingIdStr, []);
+          simulationTimers.get(bookingIdStr).push(timerId);
         }
       }
     }

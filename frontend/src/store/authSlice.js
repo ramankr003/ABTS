@@ -7,8 +7,6 @@ import * as authApi from '../api/auth';
 export const register = createAsyncThunk('auth/register', async (data, { rejectWithValue }) => {
   try {
     const res = await authApi.registerUser(data);
-    await AsyncStorage.setItem('abts_token', res.data.token);
-    await AsyncStorage.setItem('abts_user', JSON.stringify(res.data.user));
     return res.data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Registration failed.');
@@ -83,7 +81,7 @@ const authSlice = createSlice({
     // register
     builder
       .addCase(register.pending,   (s) => { s.isLoading = true;  s.error = null; })
-      .addCase(register.fulfilled, (s, a) => { s.isLoading = false; s.user = a.payload.user; s.token = a.payload.token; })
+      .addCase(register.fulfilled, (s) => { s.isLoading = false; })
       .addCase(register.rejected,  (s, a) => { s.isLoading = false; s.error = a.payload; });
 
     // login
