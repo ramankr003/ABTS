@@ -233,6 +233,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
     borderWidth: 2,
     borderColor: 'transparent',
+    ...Platform.select({ web: { outlineStyle: 'none' } }),
   },
   otpBoxFilled: { borderColor: Colors.primary },
   otpBoxError:  { borderColor: '#ef5350' },
