@@ -80,7 +80,7 @@ export default function HomeScreen({ navigation }) {
     setSearchText(text);
     setShowSuggestions(true);
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(text), 1200);
+    debounceRef.current = setTimeout(() => fetchSuggestions(text), 400);
   };
 
   const handleSelectSuggestion = (s) => {
@@ -121,11 +121,11 @@ export default function HomeScreen({ navigation }) {
     }, 200);
   };
 
-  // Fetch ambulances on mount immediately with fallback Bangalore coords
+  // Re-fetch ambulances when facility filters change (only if we already have a location)
   useEffect(() => {
-    const loc = manualLocation || location || { coords: { latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude } };
-    const lat = loc.coords ? loc.coords.latitude : loc.latitude;
-    const lng = loc.coords ? loc.coords.longitude : loc.longitude;
+    if (!effectiveLocation) return;
+    const lat = effectiveLocation.coords ? effectiveLocation.coords.latitude : effectiveLocation.latitude;
+    const lng = effectiveLocation.coords ? effectiveLocation.coords.longitude : effectiveLocation.longitude;
 
     dispatch(fetchAmbulances({
       lat,
@@ -135,7 +135,7 @@ export default function HomeScreen({ navigation }) {
       limit: 20,
       ...buildFacilityParams(selectedFacilities),
     }));
-  }, [dispatch, selectedFacilities]);
+  }, [selectedFacilities]);
 
   // Re-fetch with actual GPS when available (only if user hasn't manually selected a location)
   useEffect(() => {
